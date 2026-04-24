@@ -2,6 +2,8 @@
 
 Managing your Tailscale policy file in git gives you: version history, PR-based review, automatic validation on every change, and no risk of someone fat-fingering a rule in the admin console.
 
+> **Note:** Tailscale also ships a visual policy editor in the admin console (GA Oct 2025) for teams that prefer a GUI. GitOps and the visual editor are mutually exclusive — once you lock the console, direct edits (including via the visual editor) are disabled.
+
 ## Table of contents
 1. [Repository structure](#repository-structure)
 2. [Auth option A: API key](#auth-option-a-api-key-simplest)
