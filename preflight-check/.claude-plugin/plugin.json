@@ -1,0 +1,4 @@
+{
+  "name": "preflight-check",
+  "description": "Validate all external service connections before starting work. Trigger this skill proactively whenever a task involves GitHub (gh CLI, repos, PRs, issues), Atlassian (Jira, Confluence, any mcp__claude_ai_Atlassian__ tool), or UniFi (network management, UNIFI_API_KEY). Also trigger when the user explicitly says \"preflight\", \"check connections\", \"validate services\", \"are my APIs working\", \"check my integrations\", \"test my setup\", or \"verify access\". If any external service call fails unexpectedly during a task, trigger this skill to diagnose the issue. The goal is to catch auth problems early rather than failing mid-task."
+}

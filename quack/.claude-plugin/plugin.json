@@ -1,0 +1,4 @@
+{
+  "name": "quack",
+  "description": "Rubber duck debugging and code review session. Use when the user says \"quack\", \"rubber duck\", \"duck mode\", \"be my duck\", \"duck this\", \"I need to rubber duck\", \"talk me through my code\", \"help me think through this\", \"/quack\", or \"/duck\". Also trigger when a user seems stuck and wants to verbally walk through code or logic to find a bug. Do NOT trigger for normal code review requests where the user wants analysis — only when they want to talk through it themselves."
+}

@@ -1,0 +1,4 @@
+{
+  "name": "obsidian-cli",
+  "description": "Use this skill for ANY task involving Obsidian, vaults, notes, daily notes, backlinks, tags, properties, frontmatter, tasks/todos, templates, wikilinks, knowledge management, searching notes, note metadata, plugins, themes, CSS snippets, vault structure, orphan notes, graph analysis, bookmarks, aliases, bases (Obsidian databases), note history, word counts, outlines, publish, or any interaction with an Obsidian vault. Trigger when the user mentions Obsidian, their vault, their notes, or wants to find/read/create/modify notes programmatically."
+}

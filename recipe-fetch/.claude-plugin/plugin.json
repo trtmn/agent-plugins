@@ -1,0 +1,4 @@
+{
+  "name": "recipe-fetch",
+  "description": "Fetch one or more recipes from URLs and save them as properly formatted Obsidian markdown notes in the user's vault. Use this skill whenever the user provides a recipe URL (or a list of URLs) and wants it saved to Obsidian — including requests like \"save this recipe\", \"grab this recipe\", \"add to my cookbook\", \"fetch from this link\", or any variation. When multiple URLs are given, dispatch them as parallel background agents so all fetch simultaneously. This skill knows exactly where images and recipe files live in the vault and handles image download, type verification, and format conversion automatically."
+}

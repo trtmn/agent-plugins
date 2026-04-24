@@ -1,0 +1,4 @@
+{
+  "name": "tailscale-policy-manager",
+  "description": "Expert guide for managing Tailscale tailnet policy files (ACLs). Covers the HuJSON policy file format, all policy sections (acls, groups, tags, SSH rules, autoApprovers, tests), the Tailscale API for validating and applying policies, and GitOps automation via GitHub Actions so changes are automatically validated on PRs and deployed on merge. Use this skill whenever the user is working with Tailscale ACLs or policy files, wants to set up git-based policy management, needs to write or debug access rules, wants to automate policy deployment, or mentions tailnet, Tailscale ACL, policy.hujson, gitops-acl-action, or Tailscale network permissions. Also trigger for questions like \"how do I restrict which devices can talk to each other on Tailscale\" or \"how do I set up Tailscale SSH rules.\""
+}

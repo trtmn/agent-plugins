@@ -1,0 +1,4 @@
+{
+  "name": "youtube-data-api",
+  "description": "Query and manage YouTube channels, videos, playlists, and analytics using the YouTube Data API v3. Use this skill whenever the user mentions YouTube, their channel, video stats, subscriber counts, upload lists, playlists, video views, search results, or anything related to YouTube data. Trigger on phrases like 'check my YouTube', 'how are my videos doing', 'list my uploads', 'YouTube stats', 'video views', 'subscriber count', 'search YouTube for', 'my channel', or any reference to YouTube content management and analytics."
+}

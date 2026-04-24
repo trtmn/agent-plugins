@@ -1,0 +1,13 @@
+**/.claude/settings.local.json
+
+# Workspace directories (contain PII and temp outputs)
+*-workspace/
+
+# Evals (author tooling, not part of skill definition)
+**/evals/
+
+# Learning logs
+.learnings/
+
+# macOS
+.DS_Store

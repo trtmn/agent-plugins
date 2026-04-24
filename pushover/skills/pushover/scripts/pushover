@@ -1,0 +1,157 @@
+#!/bin/bash
+# Pushover CLI — wraps restish with 1Password credential injection
+# Token and user key are auto-injected into every request.
+#
+# GET endpoints (flags become query params):
+#   pushover get-app-limits
+#   pushover list-sounds
+#
+# POST endpoints (JSON via stdin — token/user merged automatically):
+#   pushover send-message '{"message":"Hello","title":"Test"}'
+#   echo '{"message":"Hello"}' | pushover send-message
+#
+# Shorthand for send-message (most common operation):
+#   pushover send "Hello world"
+#   pushover send "Hello world" --title "Alert" --priority 1 --sound cosmic
+
+set -euo pipefail
+
+# --- Commands that use query-param flags (GET endpoints) ---
+GET_CMDS="get-app-limits list-sounds get-license-credits get-receipt-status"
+
+# --- Commands that do NOT accept --user (GET or POST w/o user field) ---
+NO_USER="get-app-limits list-sounds get-license-credits get-receipt-status cancel-receipt cancel-by-tag list-groups get-group create-group rename-group"
+
+# Detect subcommand
+subcmd=""
+rest_args=()
+for arg in "$@"; do
+  if [[ -z "$subcmd" && "$arg" != -* ]]; then
+    subcmd="$arg"
+  fi
+  rest_args+=("$arg")
+done
+
+# --- "send" shorthand: pushover send "message" [--title X] [--priority N] [--sound S] ---
+if [[ "$subcmd" == "send" ]]; then
+  shift  # drop "send"
+  message=""
+  title="" priority="" sound="" url="" url_title="" device="" html="" ttl=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --title)    title="$2";     shift 2 ;;
+      --priority) priority="$2";  shift 2 ;;
+      --sound)    sound="$2";     shift 2 ;;
+      --url)      url="$2";      shift 2 ;;
+      --url-title) url_title="$2"; shift 2 ;;
+      --device)   device="$2";    shift 2 ;;
+      --html)     html="1";       shift ;;
+      --ttl)      ttl="$2";       shift 2 ;;
+      -*)         echo "Unknown flag: $1" >&2; exit 1 ;;
+      *)          message="$1";   shift ;;
+    esac
+  done
+  [[ -z "$message" ]] && { echo "Usage: pushover send \"message\" [--title X] [--priority N] [--sound S]" >&2; exit 1; }
+
+  exec op run --env-file=<(cat <<'EOF'
+PUSHOVER_APP_TOKEN=op://<vault>/<pushover-item>/Applications/<App Token Field>
+PUSHOVER_USER_KEY=op://<vault>/<pushover-item>/User Key/<User Key Field>
+EOF
+  ) -- bash -c '
+    json=$(jq -n \
+      --arg token "$PUSHOVER_APP_TOKEN" \
+      --arg user "$PUSHOVER_USER_KEY" \
+      --arg message "$1" \
+      --arg title "$2" \
+      --arg priority "$3" \
+      --arg sound "$4" \
+      --arg url "$5" \
+      --arg url_title "$6" \
+      --arg device "$7" \
+      --arg html "$8" \
+      --arg ttl "$9" \
+      "{token: \$token, user: \$user, message: \$message}
+       + if \$title     != \"\" then {title: \$title} else {} end
+       + if \$priority  != \"\" then {priority: (\$priority|tonumber)} else {} end
+       + if \$sound     != \"\" then {sound: \$sound} else {} end
+       + if \$url       != \"\" then {url: \$url} else {} end
+       + if \$url_title != \"\" then {url_title: \$url_title} else {} end
+       + if \$device    != \"\" then {device: \$device} else {} end
+       + if \$html      != \"\" then {html: (\$html|tonumber)} else {} end
+       + if \$ttl       != \"\" then {ttl: (\$ttl|tonumber)} else {} end")
+    echo "$json" | restish pushover send-message --rsh-no-cache
+  ' _ "$message" "$title" "$priority" "$sound" "$url" "$url_title" "$device" "$html" "$ttl"
+  exit $?
+fi
+
+# --- GET endpoints: inject --token (and --user where accepted) as flags ---
+if [[ " $GET_CMDS " =~ " $subcmd " ]]; then
+  has_token=false
+  for arg in "$@"; do [[ "$arg" == "--token" ]] && has_token=true; done
+
+  inject=""
+  $has_token || inject='--token "$PUSHOVER_APP_TOKEN"'
+
+  exec op run --env-file=<(cat <<'EOF'
+PUSHOVER_APP_TOKEN=op://<vault>/<pushover-item>/Applications/<App Token Field>
+PUSHOVER_USER_KEY=op://<vault>/<pushover-item>/User Key/<User Key Field>
+EOF
+  ) -- bash -c "exec restish pushover --rsh-no-cache $inject \"\$@\"" _ "$@"
+  exit $?
+fi
+
+# --- POST endpoints: merge token/user into JSON from stdin or first non-flag arg ---
+json_input=""
+if [[ ! -t 0 ]]; then
+  json_input=$(cat)
+else
+  # Look for a JSON arg (first non-subcommand, non-flag arg)
+  skip_subcmd=true
+  for arg in "$@"; do
+    if $skip_subcmd && [[ "$arg" == "$subcmd" ]]; then
+      skip_subcmd=false
+      continue
+    fi
+    [[ "$arg" == -* ]] && continue
+    json_input="$arg"
+    break
+  done
+fi
+
+[[ -z "$json_input" ]] && json_input="{}"
+
+# Build restish args: subcommand + any --rsh-* flags
+restish_args=("$subcmd")
+prev=""
+for arg in "$@"; do
+  [[ "$arg" == "$subcmd" ]] && continue
+  if [[ "$arg" == --rsh-* || "$arg" == -o || "$arg" == -f ]]; then
+    restish_args+=("$arg")
+    prev="flag"
+    continue
+  fi
+  if [[ "$prev" == "flag" ]]; then
+    restish_args+=("$arg")
+    prev=""
+    continue
+  fi
+  prev=""
+done
+
+inject_user=true
+[[ " $NO_USER " =~ " $subcmd " ]] && inject_user=false
+
+exec op run --env-file=<(cat <<'EOF'
+PUSHOVER_APP_TOKEN=op://<vault>/<pushover-item>/Applications/<App Token Field>
+PUSHOVER_USER_KEY=op://<vault>/<pushover-item>/User Key/<User Key Field>
+EOF
+) -- bash -c '
+  inject_user="$1"; shift
+  json_input="$1"; shift
+  merged=$(echo "$json_input" | jq \
+    --arg token "$PUSHOVER_APP_TOKEN" \
+    --arg user "$PUSHOVER_USER_KEY" \
+    --argjson inject_user "$inject_user" \
+    ". + {token: \$token} + if \$inject_user then {user: \$user} else {} end")
+  echo "$merged" | restish pushover --rsh-no-cache "$@"
+' _ "$($inject_user && echo true || echo false)" "$json_input" "${restish_args[@]}"

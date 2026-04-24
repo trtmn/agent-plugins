@@ -1,0 +1,4 @@
+{
+  "name": "unifi-api",
+  "description": "Query and control a UniFi network using the `unifi` CLI (a restish wrapper with 1Password auth) or the REST API as fallback. Use this skill whenever the user wants to manage their UniFi network — listing connected clients, blocking/unblocking devices, managing firewall policies, checking WAN health and speed test results, rebooting devices, managing VLANs or SSIDs, reading traffic stats, port forwarding, or any other UniFi network management task. Prefer the `unifi` CLI for Integration API endpoints; fall back to raw curl/python for legacy API endpoints. Trigger even if the user doesn't say \"API\" or \"UniFi\" — phrases like \"check my network\", \"block that device\", \"show me who's connected\", \"add a firewall rule\", \"what's my WAN IP\", \"how's my internet speed\", or \"what's on the guest network\" are all good triggers."
+}

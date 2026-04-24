@@ -1,0 +1,4 @@
+{
+  "name": "imsg",
+  "description": "Terminal-based iMessage and SMS management via the command line. Use this skill whenever the user mentions texting, messaging, iMessage, SMS, conversations, chat history, message backups, or any interaction with their Messages database. Trigger for requests to send/receive messages, view conversation history, list chats, watch for incoming texts, export or backup messages, or manage iMessage/SMS data—even if the user doesn't explicitly say \"iMessage\" or \"SMS\". This is the right skill for anything involving text messages, group chats, or the Messages app accessed from the terminal."
+}

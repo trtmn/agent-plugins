@@ -1,0 +1,4 @@
+{
+  "name": "home-assistant",
+  "description": "Control and query Home Assistant smart home devices via the REST API. Use this skill whenever the user mentions Home Assistant, smart home control, IoT devices, home automation, turning lights on/off, checking sensor readings, thermostat control, door locks, or any task involving their home's connected devices — even if they don't explicitly say \"Home Assistant.\" Also trigger when users ask about their home's state, want to create automations, or reference entity IDs like \"light.living_room\" or \"switch.garage_door.\""
+}
