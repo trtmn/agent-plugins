@@ -8,8 +8,8 @@ A Claude Code plugin marketplace. Plugins live under `plugins/`; `.claude-plugin
 
 Install path:
 ```
-/plugin marketplace add trtmn/claude-plugins
-/plugin install <plugin-name>@claude-plugins
+/plugin marketplace add trtmn/agent-plugins
+/plugin install <plugin-name>@agent-plugins
 ```
 
 ## Plugin Directory Structure
