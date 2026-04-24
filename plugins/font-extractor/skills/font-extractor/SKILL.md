@@ -1,6 +1,12 @@
 ---
 name: font-extractor
 description: Extract and download all fonts from a website, organized into ./fonts/<font-family>/ subdirectories. Use this skill whenever the user wants to grab, rip, download, or extract fonts from a website or URL — even if they just say "get the fonts from this site", "download the fonts used on this page", or "what fonts does this website use?". Works with both static and JavaScript-rendered pages.
+allowed-tools:
+  - Bash(curl -L *:*)
+  - Bash(mkdir -p *:*)
+  - Bash(find *:*)
+  - Bash(uv run *:*)
+  - WebFetch
 ---
 
 # Font Extractor
@@ -51,7 +57,7 @@ Download all unique URLs. Do not deduplicate — different URLs may be different
 Run the bundled organize script. It reads each font file's internal metadata to determine its family name, then moves files into `./fonts/<family>/` subdirectories:
 
 ```bash
-uv run ~/git/agent-skills/font-extractor/scripts/organize_fonts.py ./fonts
+uv run "$CLAUDE_PLUGIN_ROOT/scripts/organize_fonts.py" ./fonts
 ```
 
 The script handles everything: reads the font name table, creates family directories, moves files. Fonts whose family can't be read get `Unknown-1`, `Unknown-2`, etc.
