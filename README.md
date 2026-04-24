@@ -9,8 +9,8 @@ Each plugin bundles a **skill** (optionally with subagents, slash commands, and 
 Add this repo as a plugin marketplace, then install plugins by name:
 
 ```
-/plugin marketplace add trtmn/claude-plugins
-/plugin install <plugin-name>@claude-plugins
+/plugin marketplace add trtmn/agent-plugins
+/plugin install <plugin-name>@agent-plugins
 ```
 
 ## Plugins
