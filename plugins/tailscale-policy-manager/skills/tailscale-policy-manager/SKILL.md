@@ -1,16 +1,18 @@
 ---
 name: tailscale-policy-manager
 description: >
-  Expert guide for managing Tailscale tailnet policy files (ACLs). Covers the HuJSON
-  policy file format, all policy sections (acls, groups, tags, SSH rules, autoApprovers,
-  tests), the Tailscale API for validating and applying policies, and GitOps automation
-  via GitHub Actions so changes are automatically validated on PRs and deployed on merge.
+  Expert guide for managing Tailscale tailnet policy files. Covers the HuJSON policy
+  file format, all policy sections (grants, acls, groups, tags, postures, SSH rules,
+  autoApprovers, nodeAttrs, tests), the Tailscale API for validating and applying
+  policies, and GitOps automation via GitHub Actions. Grants are now GA and the default
+  for new tailnets; acls are supported indefinitely but won't receive new features.
   Use this skill whenever the user is working with Tailscale ACLs or policy files,
   wants to set up git-based policy management, needs to write or debug access rules,
   wants to automate policy deployment, or mentions tailnet, Tailscale ACL, policy.hujson,
-  gitops-acl-action, or Tailscale network permissions. Also trigger for questions like
-  "how do I restrict which devices can talk to each other on Tailscale" or "how do I
-  set up Tailscale SSH rules."
+  gitops-acl-action, grants, postures, or Tailscale network permissions. Also trigger
+  for questions like "how do I restrict which devices can talk to each other on
+  Tailscale", "how do I set up Tailscale SSH rules", or "how do I require device
+  posture checks for prod access."
 ---
 
 # Tailscale Policy Manager
@@ -21,10 +23,18 @@ Tailscale controls who can talk to what on your private network through a single
 
 When a user asks about Tailscale policy/ACL work, figure out what they need:
 
-- **Writing or editing rules** → start with the policy file structure below, then `references/policy-file-reference.md` for full details
-- **Setting up git-based automation** → `references/gitops-setup.md`
-- **Using the API directly** → `references/api-reference.md`
+- **Writing or editing rules** → delegate to the `tailscale-policy-writer` agent (background)
+- **Reviewing a policy for security issues** → delegate to the `tailscale-policy-reviewer` agent (background)
+- **Setting up GitOps / GitHub Actions** → delegate to the `tailscale-gitops-setup` agent (background)
+- **Using the API directly / scripting** → `references/api-reference.md`; bundled scripts in `scripts/` (`validate-policy.sh`, `apply-policy.sh`, `get-policy.sh`)
 - **Debugging why something isn't allowed** → check the `tests` block section below and the ACL rule syntax
+- **Full policy file schema** → `references/policy-file-reference.md`
+
+## Grants vs ACLs (as of 2025)
+
+**Grants are GA and the default for new tailnets.** For new policies, always use `grants`. For existing policies using `acls`, continue using `acls` unless the user asks to migrate — both syntaxes are supported indefinitely and can coexist in the same file.
+
+Key difference: only `grants` will receive new features (posture checks, app-layer capabilities). `acls` are network-layer only.
 
 ## The HuJSON format
 
