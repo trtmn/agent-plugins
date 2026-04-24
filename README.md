@@ -1,4 +1,4 @@
-# claude-plugins
+# agent-plugins
 
 A Claude Code plugin marketplace by [@trtmn](https://github.com/trtmn).
 
