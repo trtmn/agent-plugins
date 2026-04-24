@@ -1,6 +1,8 @@
 ---
 name: mastodon-cli
 description: "Interact with Mastodon using the `toot` CLI — post statuses, read timelines, check notifications, search, follow/unfollow, boost, favourite, and manage your account. Use this skill whenever the user mentions Mastodon, tooting, fediverse, their timeline, mentions, boosts, favourites, followers, or anything related to social media posting on Mastodon. Also trigger when the user asks to check what's happening on social media, wants to share something publicly, asks about trending topics, or says things like 'post this', 'toot this', 'check my mentions', 'what's on my timeline', 'who followed me', or 'boost that'. Even casual references like 'share this on masto' or 'what's trending' should trigger this skill."
+allowed-tools:
+  - Bash(toot *:*)
 ---
 
 # Mastodon CLI via `toot`
