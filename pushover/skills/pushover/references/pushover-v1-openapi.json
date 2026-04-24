@@ -1,0 +1,903 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Pushover API",
+    "description": "Push notifications to Android, iOS, and Desktop devices",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.pushover.net/1"
+    }
+  ],
+  "paths": {
+    "/messages.json": {
+      "post": {
+        "operationId": "send-message",
+        "summary": "Send a push notification",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user", "message"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Application API token (30 chars)"
+                  },
+                  "user": {
+                    "type": "string",
+                    "description": "User or group key (30 chars)"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Notification body (max 1024 4-byte UTF-8 chars)"
+                  },
+                  "device": {
+                    "type": "string",
+                    "description": "Target device name; omit for all devices"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Message title (max 250 chars); defaults to app name"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "enum": [-2, -1, 0, 1, 2],
+                    "description": "-2=lowest, -1=low, 0=normal, 1=high, 2=emergency"
+                  },
+                  "sound": {
+                    "type": "string",
+                    "description": "Notification sound name (see /sounds.json)"
+                  },
+                  "timestamp": {
+                    "type": "integer",
+                    "description": "Unix timestamp for the message"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Supplementary URL (max 512 chars)"
+                  },
+                  "url_title": {
+                    "type": "string",
+                    "description": "Title for the supplementary URL (max 100 chars)"
+                  },
+                  "html": {
+                    "type": "integer",
+                    "enum": [0, 1],
+                    "description": "Enable HTML formatting in message body"
+                  },
+                  "monospace": {
+                    "type": "integer",
+                    "enum": [0, 1],
+                    "description": "Display message in monospace font"
+                  },
+                  "ttl": {
+                    "type": "integer",
+                    "description": "Time to live in seconds; message deleted after expiry"
+                  },
+                  "retry": {
+                    "type": "integer",
+                    "description": "Seconds between retries (min 30); required for priority=2"
+                  },
+                  "expire": {
+                    "type": "integer",
+                    "description": "Seconds before retries stop (max 10800); required for priority=2"
+                  },
+                  "callback": {
+                    "type": "string",
+                    "description": "URL to POST to when emergency notification is acknowledged"
+                  },
+                  "tags": {
+                    "type": "string",
+                    "description": "Comma-separated list of tags for cancel_by_tag"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user", "message"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "user": { "type": "string" },
+                  "message": { "type": "string" },
+                  "attachment": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image attachment (max 5MB)"
+                  },
+                  "attachment_type": {
+                    "type": "string",
+                    "description": "MIME type of attachment (e.g., image/png)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/validate.json": {
+      "post": {
+        "operationId": "validate-user",
+        "summary": "Validate a user or group key",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Application API token"
+                  },
+                  "user": {
+                    "type": "string",
+                    "description": "User or group key to validate"
+                  },
+                  "device": {
+                    "type": "string",
+                    "description": "Optional device name to validate"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User is valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Invalid user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sounds.json": {
+      "get": {
+        "operationId": "list-sounds",
+        "summary": "List available notification sounds",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Application API token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sound list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "sounds": {
+                      "type": "object",
+                      "additionalProperties": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/apps/limits.json": {
+      "get": {
+        "operationId": "get-app-limits",
+        "summary": "Check application message limits and remaining quota",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Application API token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Limit info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "limit": { "type": "integer", "description": "Monthly message limit" },
+                    "remaining": { "type": "integer", "description": "Messages remaining this month" },
+                    "reset": { "type": "integer", "description": "Unix timestamp when limit resets" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/receipts/{receipt}.json": {
+      "get": {
+        "operationId": "get-receipt-status",
+        "summary": "Check status of an emergency-priority notification",
+        "parameters": [
+          {
+            "name": "receipt",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Receipt ID from emergency message"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Application API token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "acknowledged": { "type": "integer", "description": "1 if acknowledged, 0 if not" },
+                    "acknowledged_at": { "type": "integer", "description": "Unix timestamp or 0" },
+                    "acknowledged_by": { "type": "string", "description": "User key who acknowledged" },
+                    "acknowledged_by_device": { "type": "string" },
+                    "last_delivered_at": { "type": "integer" },
+                    "expired": { "type": "integer", "description": "1 if expired, 0 if not" },
+                    "expires_at": { "type": "integer" },
+                    "called_back": { "type": "integer" },
+                    "called_back_at": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/receipts/{receipt}/cancel.json": {
+      "post": {
+        "operationId": "cancel-receipt",
+        "summary": "Cancel retries for an emergency-priority notification",
+        "parameters": [
+          {
+            "name": "receipt",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Receipt ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": {
+                  "token": { "type": "string", "description": "Application API token" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cancelled",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/receipts/cancel_by_tag/{tag}.json": {
+      "post": {
+        "operationId": "cancel-by-tag",
+        "summary": "Cancel all emergency notifications with a given tag",
+        "parameters": [
+          {
+            "name": "tag",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Tag to cancel"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": {
+                  "token": { "type": "string", "description": "Application API token" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cancelled",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/glances.json": {
+      "post": {
+        "operationId": "send-glance",
+        "summary": "Push data to a Glances widget (e.g., Apple Watch complication)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user"],
+                "properties": {
+                  "token": { "type": "string", "description": "Application API token" },
+                  "user": { "type": "string", "description": "User key" },
+                  "device": { "type": "string", "description": "Target device name" },
+                  "title": { "type": "string", "description": "Data description (max 100 chars)" },
+                  "text": { "type": "string", "description": "Primary data line (max 100 chars)" },
+                  "subtext": { "type": "string", "description": "Secondary data line (max 100 chars)" },
+                  "count": { "type": "integer", "description": "Numeric count value" },
+                  "percent": { "type": "integer", "description": "Percentage 0-100 for progress display" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Glance sent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups.json": {
+      "get": {
+        "operationId": "list-groups",
+        "summary": "List all delivery groups",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Application API token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group": { "type": "string" },
+                          "name": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create-group",
+        "summary": "Create a new delivery group",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "name"],
+                "properties": {
+                  "token": { "type": "string", "description": "Application API token" },
+                  "name": { "type": "string", "description": "Group name (must be unique)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Group created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "group": { "type": "string", "description": "New group key" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{group_key}.json": {
+      "get": {
+        "operationId": "get-group",
+        "summary": "Get group info and members",
+        "parameters": [
+          {
+            "name": "group_key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Group key"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Application API token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "name": { "type": "string" },
+                    "users": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "user": { "type": "string" },
+                          "device": { "type": "string" },
+                          "memo": { "type": "string" },
+                          "disabled": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{group_key}/add_user.json": {
+      "post": {
+        "operationId": "add-user-to-group",
+        "summary": "Add a user to a delivery group",
+        "parameters": [
+          {
+            "name": "group_key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "user": { "type": "string", "description": "Pushover user key to add" },
+                  "device": { "type": "string", "description": "Restrict to specific device" },
+                  "memo": { "type": "string", "description": "Free-text note (max 200 chars)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User added",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{group_key}/remove_user.json": {
+      "post": {
+        "operationId": "remove-user-from-group",
+        "summary": "Remove a user from a delivery group",
+        "parameters": [
+          {
+            "name": "group_key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "user": { "type": "string" },
+                  "device": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User removed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{group_key}/disable_user.json": {
+      "post": {
+        "operationId": "disable-user-in-group",
+        "summary": "Disable a user in a delivery group",
+        "parameters": [
+          {
+            "name": "group_key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "user": { "type": "string" },
+                  "device": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User disabled",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{group_key}/enable_user.json": {
+      "post": {
+        "operationId": "enable-user-in-group",
+        "summary": "Re-enable a user in a delivery group",
+        "parameters": [
+          {
+            "name": "group_key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "user"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "user": { "type": "string" },
+                  "device": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User re-enabled",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{group_key}/rename.json": {
+      "post": {
+        "operationId": "rename-group",
+        "summary": "Rename a delivery group",
+        "parameters": [
+          {
+            "name": "group_key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "name"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "name": { "type": "string", "description": "New group name (must be unique)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Group renamed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/migrate.json": {
+      "post": {
+        "operationId": "migrate-subscription",
+        "summary": "Migrate a user key to a subscription-specific key",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "subscription", "user"],
+                "properties": {
+                  "token": { "type": "string", "description": "Application API token" },
+                  "subscription": { "type": "string", "description": "Subscription code" },
+                  "user": { "type": "string", "description": "User's existing Pushover key" },
+                  "device_name": { "type": "string", "description": "Limit to specific device" },
+                  "sound": { "type": "string", "description": "Preferred default sound" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Migrated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "subscribed_user_key": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/licenses/assign.json": {
+      "post": {
+        "operationId": "assign-license",
+        "summary": "Assign a license credit to a user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": {
+                  "token": { "type": "string", "description": "Application API token" },
+                  "user": { "type": "string", "description": "Pushover user key (provide user OR email)" },
+                  "email": { "type": "string", "description": "User's email (provide user OR email)" },
+                  "os": { "type": "string", "enum": ["Android", "iOS", "Desktop"], "description": "Platform to license; omit for auto-assign" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "License assigned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "credits": { "type": "integer", "description": "Remaining license credits" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/licenses.json": {
+      "get": {
+        "operationId": "get-license-credits",
+        "summary": "Check remaining license credits",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Application API token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Credit info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "request": { "type": "string" },
+                    "credits": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "integer", "description": "1 on success" },
+          "request": { "type": "string", "description": "Request UUID" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "integer", "description": "0 on error" },
+          "request": { "type": "string", "description": "Request UUID" },
+          "errors": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Error messages"
+          }
+        }
+      }
+    }
+  }
+}

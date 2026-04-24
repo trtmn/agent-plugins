@@ -1,0 +1,4 @@
+{
+  "name": "font-extractor",
+  "description": "Extract and download all fonts from a website, organized into ./fonts/<font-family>/ subdirectories. Use this skill whenever the user wants to grab, rip, download, or extract fonts from a website or URL — even if they just say \"get the fonts from this site\", \"download the fonts used on this page\", or \"what fonts does this website use?\". Works with both static and JavaScript-rendered pages."
+}

@@ -1,0 +1,4 @@
+{
+  "name": "learnings",
+  "description": "Autonomous capture of every correction, error, suggestion, and knowledge gap to ~/.learnings/ as it happens. Not user-invoked — this is the contract for passive logging. Main Claude delegates to the `learnings` subagent in the background the moment a trigger fires. For the user-triggered review-and-promote workflow, see the `self-improvement` skill."
+}

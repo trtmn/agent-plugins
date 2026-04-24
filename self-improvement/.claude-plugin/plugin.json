@@ -1,0 +1,4 @@
+{
+  "name": "self-improvement",
+  "description": "User-triggered review and promotion of accumulated learnings. Reads pending entries from ~/.learnings/, proposes promotion candidates to CLAUDE.md, and lets the user approve each one. Use this skill when the user explicitly asks to review learnings, promote entries, do an end-of-session retrospective, or analyze GitHub PRs/issues for recurring patterns. Also use on phrases like \"promote\", \"review learnings\", \"what have we learned\", or \"self-improvement\". Do NOT use this skill for logging — that is the separate `learnings` skill (autonomous, background capture)."
+}

@@ -1,0 +1,4 @@
+{
+  "name": "skills-manager",
+  "description": "Install, remove, list, find, and update Claude Code skills using the `npx skills` CLI. Use this skill whenever the user wants to manage their agent skills — install a new skill, search the skills registry, remove a skill, check for updates, or update all skills. Also trigger for requests like \"find me a skill for X\", \"install the Y skill\", \"what skills do I have installed\", \"remove the Z skill\", or \"are my skills up to date.\""
+}

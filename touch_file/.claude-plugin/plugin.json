@@ -1,0 +1,4 @@
+{
+  "name": "touch_file",
+  "description": "Recovery strategy when the Write tool fails to create a new file. Use this skill whenever a Write or Edit tool call fails with an error related to creating a new file — such as missing parent directories, permission issues, or \"file not found\" errors on files that don't exist yet. This skill does NOT apply to editing existing files that fail for other reasons. Trigger when you see Write/Edit errors on new file creation, when file creation fails unexpectedly, or when you get path-related errors trying to create files in nested directories."
+}

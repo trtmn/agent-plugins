@@ -1,0 +1,4 @@
+{
+  "name": "homebrew-dev",
+  "description": "Package and distribute macOS apps, fonts, CLI tools, and arbitrary files using Homebrew formulas and casks. Use this skill whenever the user wants to create a Homebrew formula or cask, set up a personal tap, package a macOS .app bundle, distribute fonts or pre-built binaries via brew, use `brew create`, bump a formula or cask to a new version, submit a package to homebrew-core or homebrew-cask, or publish anything with Homebrew — even if they just ask how to \"make something installable with brew\", \"share my app through Homebrew\", \"update my formula\", or \"get my package into Homebrew\"."
+}

@@ -1,0 +1,4 @@
+{
+  "name": "pushover",
+  "description": "Send push notifications and manage delivery groups via the Pushover API using the `pushover` CLI (a restish wrapper with 1Password auth). Use this skill whenever the user wants to send a notification, check message limits, manage groups, or do anything with Pushover. Trigger on phrases like \"send a push notification\", \"notify me\", \"pushover\", \"send an alert\", \"check my message limits\", \"push a notification to my phone\", or any mention of Pushover."
+}
