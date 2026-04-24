@@ -3,6 +3,9 @@
 # Workspace directories (contain PII and temp outputs)
 *-workspace/
 
+# Git worktrees
+.worktrees/
+
 # Evals (author tooling, not part of skill definition)
 **/evals/
 
