@@ -1,6 +1,11 @@
 ---
 name: wp-custom-theme
 description: "Use this skill whenever the user is creating, editing, maintaining, or debugging a custom WordPress theme. Trigger for any of the following: building a theme from scratch, modifying theme templates (header.php, footer.php, single.php, page.php, etc.), working with functions.php, registering hooks or filters, styling with theme CSS or theme.json, adding Gutenberg block support, customizing block styles, optimizing theme performance, or reviewing theme security. Also trigger when the user mentions template hierarchy, child themes, enqueuing scripts/styles, custom post types in a theme context, WordPress loop, or WP_Query customizations. If in doubt and WordPress theming is involved, use this skill."
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash(wp *:*)
 ---
 
 # Custom WordPress Theme Skill
