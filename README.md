@@ -41,10 +41,10 @@ See each plugin's `SKILL.md` (or `skills/<name>/SKILL.md`) for triggers, usage, 
 
 ## Layout
 
-Each plugin is a self-contained directory at the repo root:
+Plugins live under `plugins/`; the marketplace manifest is at the repo root:
 
 ```
-<plugin>/
+plugins/<plugin>/
 ├── .claude-plugin/plugin.json    # manifest — {name, description}
 ├── skills/<name>/
 │   ├── SKILL.md                  # skill contract (YAML frontmatter + body)

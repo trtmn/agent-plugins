@@ -1,5 +1,5 @@
 {
-  "name": "claude-plugins",
+  "name": "agent-plugins",
   "owner": {
     "name": "Matt Troutman (trtmn)"
   },
@@ -10,97 +10,97 @@
   "plugins": [
     {
       "name": "cowsay",
-      "source": "./cowsay",
+      "source": "./plugins/cowsay",
       "description": "Generates an ASCII cow saying custom text. Use when the user wants \"cowsay\", \"cow say\", or a cow to say something."
     },
     {
       "name": "font-extractor",
-      "source": "./font-extractor",
-      "description": "Extract and download all fonts from a website, organized into ./fonts/<font-family>/ subdirectories. Use this skill whenever the user wants to grab, rip, download, or extract fonts from a website or URL \u2014 even if they just say \"get the fonts from this site\", \"download the fonts used on this page\", or \"what fonts does this website use?\". Works with both static and JavaScript-rendered pages."
+      "source": "./plugins/font-extractor",
+      "description": "Extract and download all fonts from a website, organized into ./fonts/<font-family>/ subdirectories. Use this skill whenever the user wants to grab, rip, download, or extract fonts from a website or URL — even if they just say \"get the fonts from this site\", \"download the fonts used on this page\", or \"what fonts does this website use?\". Works with both static and JavaScript-rendered pages."
     },
     {
       "name": "home-assistant",
-      "source": "./home-assistant",
-      "description": "Control and query Home Assistant smart home devices via the REST API. Use this skill whenever the user mentions Home Assistant, smart home control, IoT devices, home automation, turning lights on/off, checking sensor readings, thermostat control, door locks, or any task involving their home's connected devices \u2014 even if they don't explicitly say \"Home Assistant.\" Also trigger when users ask about their home's state, want to create automations, or reference entity IDs like \"light.living_room\" or \"switch.garage_door.\""
+      "source": "./plugins/home-assistant",
+      "description": "Control and query Home Assistant smart home devices via the REST API. Use this skill whenever the user mentions Home Assistant, smart home control, IoT devices, home automation, turning lights on/off, checking sensor readings, thermostat control, door locks, or any task involving their home's connected devices — even if they don't explicitly say \"Home Assistant.\" Also trigger when users ask about their home's state, want to create automations, or reference entity IDs like \"light.living_room\" or \"switch.garage_door.\""
     },
     {
       "name": "homebrew-dev",
-      "source": "./homebrew-dev",
-      "description": "Package and distribute macOS apps, fonts, CLI tools, and arbitrary files using Homebrew formulas and casks. Use this skill whenever the user wants to create a Homebrew formula or cask, set up a personal tap, package a macOS .app bundle, distribute fonts or pre-built binaries via brew, use `brew create`, bump a formula or cask to a new version, submit a package to homebrew-core or homebrew-cask, or publish anything with Homebrew \u2014 even if they just ask how to \"make something installable with brew\", \"share my app through Homebrew\", \"update my formula\", or \"get my package into Homebrew\"."
+      "source": "./plugins/homebrew-dev",
+      "description": "Package and distribute macOS apps, fonts, CLI tools, and arbitrary files using Homebrew formulas and casks. Use this skill whenever the user wants to create a Homebrew formula or cask, set up a personal tap, package a macOS .app bundle, distribute fonts or pre-built binaries via brew, use `brew create`, bump a formula or cask to a new version, submit a package to homebrew-core or homebrew-cask, or publish anything with Homebrew — even if they just ask how to \"make something installable with brew\", \"share my app through Homebrew\", \"update my formula\", or \"get my package into Homebrew\"."
     },
     {
       "name": "imsg",
-      "source": "./imsg",
-      "description": "Terminal-based iMessage and SMS management via the command line. Use this skill whenever the user mentions texting, messaging, iMessage, SMS, conversations, chat history, message backups, or any interaction with their Messages database. Trigger for requests to send/receive messages, view conversation history, list chats, watch for incoming texts, export or backup messages, or manage iMessage/SMS data\u2014even if the user doesn't explicitly say \"iMessage\" or \"SMS\". This is the right skill for anything involving text messages, group chats, or the Messages app accessed from the terminal."
+      "source": "./plugins/imsg",
+      "description": "Terminal-based iMessage and SMS management via the command line. Use this skill whenever the user mentions texting, messaging, iMessage, SMS, conversations, chat history, message backups, or any interaction with their Messages database. Trigger for requests to send/receive messages, view conversation history, list chats, watch for incoming texts, export or backup messages, or manage iMessage/SMS data—even if the user doesn't explicitly say \"iMessage\" or \"SMS\". This is the right skill for anything involving text messages, group chats, or the Messages app accessed from the terminal."
     },
     {
       "name": "learnings",
-      "source": "./learnings",
-      "description": "Autonomous capture of every correction, error, suggestion, and knowledge gap to ~/.learnings/ as it happens. Not user-invoked \u2014 this is the contract for passive logging. Main Claude delegates to the `learnings` subagent in the background the moment a trigger fires. For the user-triggered review-and-promote workflow, see the `self-improvement` skill."
+      "source": "./plugins/learnings",
+      "description": "Autonomous capture of every correction, error, suggestion, and knowledge gap to ~/.learnings/ as it happens. Not user-invoked — this is the contract for passive logging. Main Claude delegates to the `learnings` subagent in the background the moment a trigger fires. For the user-triggered review-and-promote workflow, see the `self-improvement` skill."
     },
     {
       "name": "mastodon-cli",
-      "source": "./mastodon-cli",
-      "description": "Interact with Mastodon using the `toot` CLI \u2014 post statuses, read timelines, check notifications, search, follow/unfollow, boost, favourite, and manage your account. Use this skill whenever the user mentions Mastodon, tooting, fediverse, their timeline, mentions, boosts, favourites, followers, or anything related to social media posting on Mastodon. Also trigger when the user asks to check what's happening on social media, wants to share something publicly, asks about trending topics, or says things like 'post this', 'toot this', 'check my mentions', 'what's on my timeline', 'who followed me', or 'boost that'. Even casual references like 'share this on masto' or 'what's trending' should trigger this skill."
+      "source": "./plugins/mastodon-cli",
+      "description": "Interact with Mastodon using the `toot` CLI — post statuses, read timelines, check notifications, search, follow/unfollow, boost, favourite, and manage your account. Use this skill whenever the user mentions Mastodon, tooting, fediverse, their timeline, mentions, boosts, favourites, followers, or anything related to social media posting on Mastodon. Also trigger when the user asks to check what's happening on social media, wants to share something publicly, asks about trending topics, or says things like 'post this', 'toot this', 'check my mentions', 'what's on my timeline', 'who followed me', or 'boost that'. Even casual references like 'share this on masto' or 'what's trending' should trigger this skill."
     },
     {
       "name": "obsidian-cli",
-      "source": "./obsidian-cli",
+      "source": "./plugins/obsidian-cli",
       "description": "Use this skill for ANY task involving Obsidian, vaults, notes, daily notes, backlinks, tags, properties, frontmatter, tasks/todos, templates, wikilinks, knowledge management, searching notes, note metadata, plugins, themes, CSS snippets, vault structure, orphan notes, graph analysis, bookmarks, aliases, bases (Obsidian databases), note history, word counts, outlines, publish, or any interaction with an Obsidian vault. Trigger when the user mentions Obsidian, their vault, their notes, or wants to find/read/create/modify notes programmatically."
     },
     {
       "name": "preflight-check",
-      "source": "./preflight-check",
+      "source": "./plugins/preflight-check",
       "description": "Validate all external service connections before starting work. Trigger this skill proactively whenever a task involves GitHub (gh CLI, repos, PRs, issues), Atlassian (Jira, Confluence, any mcp__claude_ai_Atlassian__ tool), or UniFi (network management, UNIFI_API_KEY). Also trigger when the user explicitly says \"preflight\", \"check connections\", \"validate services\", \"are my APIs working\", \"check my integrations\", \"test my setup\", or \"verify access\". If any external service call fails unexpectedly during a task, trigger this skill to diagnose the issue. The goal is to catch auth problems early rather than failing mid-task."
     },
     {
       "name": "pushover",
-      "source": "./pushover",
+      "source": "./plugins/pushover",
       "description": "Send push notifications and manage delivery groups via the Pushover API using the `pushover` CLI (a restish wrapper with 1Password auth). Use this skill whenever the user wants to send a notification, check message limits, manage groups, or do anything with Pushover. Trigger on phrases like \"send a push notification\", \"notify me\", \"pushover\", \"send an alert\", \"check my message limits\", \"push a notification to my phone\", or any mention of Pushover."
     },
     {
       "name": "quack",
-      "source": "./quack",
-      "description": "Rubber duck debugging and code review session. Use when the user says \"quack\", \"rubber duck\", \"duck mode\", \"be my duck\", \"duck this\", \"I need to rubber duck\", \"talk me through my code\", \"help me think through this\", \"/quack\", or \"/duck\". Also trigger when a user seems stuck and wants to verbally walk through code or logic to find a bug. Do NOT trigger for normal code review requests where the user wants analysis \u2014 only when they want to talk through it themselves."
+      "source": "./plugins/quack",
+      "description": "Rubber duck debugging and code review session. Use when the user says \"quack\", \"rubber duck\", \"duck mode\", \"be my duck\", \"duck this\", \"I need to rubber duck\", \"talk me through my code\", \"help me think through this\", \"/quack\", or \"/duck\". Also trigger when a user seems stuck and wants to verbally walk through code or logic to find a bug. Do NOT trigger for normal code review requests where the user wants analysis — only when they want to talk through it themselves."
     },
     {
       "name": "recipe-fetch",
-      "source": "./recipe-fetch",
-      "description": "Fetch one or more recipes from URLs and save them as properly formatted Obsidian markdown notes in the user's vault. Use this skill whenever the user provides a recipe URL (or a list of URLs) and wants it saved to Obsidian \u2014 including requests like \"save this recipe\", \"grab this recipe\", \"add to my cookbook\", \"fetch from this link\", or any variation. When multiple URLs are given, dispatch them as parallel background agents so all fetch simultaneously. This skill knows exactly where images and recipe files live in the vault and handles image download, type verification, and format conversion automatically."
+      "source": "./plugins/recipe-fetch",
+      "description": "Fetch one or more recipes from URLs and save them as properly formatted Obsidian markdown notes in the user's vault. Use this skill whenever the user provides a recipe URL (or a list of URLs) and wants it saved to Obsidian — including requests like \"save this recipe\", \"grab this recipe\", \"add to my cookbook\", \"fetch from this link\", or any variation. When multiple URLs are given, dispatch them as parallel background agents so all fetch simultaneously. This skill knows exactly where images and recipe files live in the vault and handles image download, type verification, and format conversion automatically."
     },
     {
       "name": "self-improvement",
-      "source": "./self-improvement",
-      "description": "User-triggered review and promotion of accumulated learnings. Reads pending entries from ~/.learnings/, proposes promotion candidates to CLAUDE.md, and lets the user approve each one. Use this skill when the user explicitly asks to review learnings, promote entries, do an end-of-session retrospective, or analyze GitHub PRs/issues for recurring patterns. Also use on phrases like \"promote\", \"review learnings\", \"what have we learned\", or \"self-improvement\". Do NOT use this skill for logging \u2014 that is the separate `learnings` skill (autonomous, background capture)."
+      "source": "./plugins/self-improvement",
+      "description": "User-triggered review and promotion of accumulated learnings. Reads pending entries from ~/.learnings/, proposes promotion candidates to CLAUDE.md, and lets the user approve each one. Use this skill when the user explicitly asks to review learnings, promote entries, do an end-of-session retrospective, or analyze GitHub PRs/issues for recurring patterns. Also use on phrases like \"promote\", \"review learnings\", \"what have we learned\", or \"self-improvement\". Do NOT use this skill for logging — that is the separate `learnings` skill (autonomous, background capture)."
     },
     {
       "name": "skills-manager",
-      "source": "./skills-manager",
-      "description": "Install, remove, list, find, and update Claude Code skills using the `npx skills` CLI. Use this skill whenever the user wants to manage their agent skills \u2014 install a new skill, search the skills registry, remove a skill, check for updates, or update all skills. Also trigger for requests like \"find me a skill for X\", \"install the Y skill\", \"what skills do I have installed\", \"remove the Z skill\", or \"are my skills up to date.\""
+      "source": "./plugins/skills-manager",
+      "description": "Install, remove, list, find, and update Claude Code skills using the `npx skills` CLI. Use this skill whenever the user wants to manage their agent skills — install a new skill, search the skills registry, remove a skill, check for updates, or update all skills. Also trigger for requests like \"find me a skill for X\", \"install the Y skill\", \"what skills do I have installed\", \"remove the Z skill\", or \"are my skills up to date.\""
     },
     {
       "name": "tailscale-policy-manager",
-      "source": "./tailscale-policy-manager",
+      "source": "./plugins/tailscale-policy-manager",
       "description": "Expert guide for managing Tailscale tailnet policy files (ACLs). Covers the HuJSON policy file format, all policy sections (acls, groups, tags, SSH rules, autoApprovers, tests), the Tailscale API for validating and applying policies, and GitOps automation via GitHub Actions so changes are automatically validated on PRs and deployed on merge. Use this skill whenever the user is working with Tailscale ACLs or policy files, wants to set up git-based policy management, needs to write or debug access rules, wants to automate policy deployment, or mentions tailnet, Tailscale ACL, policy.hujson, gitops-acl-action, or Tailscale network permissions. Also trigger for questions like \"how do I restrict which devices can talk to each other on Tailscale\" or \"how do I set up Tailscale SSH rules.\""
     },
     {
       "name": "touch_file",
-      "source": "./touch_file",
-      "description": "Recovery strategy when the Write tool fails to create a new file. Use this skill whenever a Write or Edit tool call fails with an error related to creating a new file \u2014 such as missing parent directories, permission issues, or \"file not found\" errors on files that don't exist yet. This skill does NOT apply to editing existing files that fail for other reasons. Trigger when you see Write/Edit errors on new file creation, when file creation fails unexpectedly, or when you get path-related errors trying to create files in nested directories."
+      "source": "./plugins/touch_file",
+      "description": "Recovery strategy when the Write tool fails to create a new file. Use this skill whenever a Write or Edit tool call fails with an error related to creating a new file — such as missing parent directories, permission issues, or \"file not found\" errors on files that don't exist yet. This skill does NOT apply to editing existing files that fail for other reasons. Trigger when you see Write/Edit errors on new file creation, when file creation fails unexpectedly, or when you get path-related errors trying to create files in nested directories."
     },
     {
       "name": "unifi-api",
-      "source": "./unifi-api",
-      "description": "Query and control a UniFi network using the `unifi` CLI (a restish wrapper with 1Password auth) or the REST API as fallback. Use this skill whenever the user wants to manage their UniFi network \u2014 listing connected clients, blocking/unblocking devices, managing firewall policies, checking WAN health and speed test results, rebooting devices, managing VLANs or SSIDs, reading traffic stats, port forwarding, or any other UniFi network management task. Prefer the `unifi` CLI for Integration API endpoints; fall back to raw curl/python for legacy API endpoints. Trigger even if the user doesn't say \"API\" or \"UniFi\" \u2014 phrases like \"check my network\", \"block that device\", \"show me who's connected\", \"add a firewall rule\", \"what's my WAN IP\", \"how's my internet speed\", or \"what's on the guest network\" are all good triggers."
+      "source": "./plugins/unifi-api",
+      "description": "Query and control a UniFi network using the `unifi` CLI (a restish wrapper with 1Password auth) or the REST API as fallback. Use this skill whenever the user wants to manage their UniFi network — listing connected clients, blocking/unblocking devices, managing firewall policies, checking WAN health and speed test results, rebooting devices, managing VLANs or SSIDs, reading traffic stats, port forwarding, or any other UniFi network management task. Prefer the `unifi` CLI for Integration API endpoints; fall back to raw curl/python for legacy API endpoints. Trigger even if the user doesn't say \"API\" or \"UniFi\" — phrases like \"check my network\", \"block that device\", \"show me who's connected\", \"add a firewall rule\", \"what's my WAN IP\", \"how's my internet speed\", or \"what's on the guest network\" are all good triggers."
     },
     {
       "name": "wp-custom-theme",
-      "source": "./wp-custom-theme",
+      "source": "./plugins/wp-custom-theme",
       "description": "Use this skill whenever the user is creating, editing, maintaining, or debugging a custom WordPress theme. Trigger for any of the following: building a theme from scratch, modifying theme templates (header.php, footer.php, single.php, page.php, etc.), working with functions.php, registering hooks or filters, styling with theme CSS or theme.json, adding Gutenberg block support, customizing block styles, optimizing theme performance, or reviewing theme security. Also trigger when the user mentions template hierarchy, child themes, enqueuing scripts/styles, custom post types in a theme context, WordPress loop, or WP_Query customizations. If in doubt and WordPress theming is involved, use this skill."
     },
     {
       "name": "youtube-data-api",
-      "source": "./youtube-data-api",
+      "source": "./plugins/youtube-data-api",
       "description": "Query and manage YouTube channels, videos, playlists, and analytics using the YouTube Data API v3. Use this skill whenever the user mentions YouTube, their channel, video stats, subscriber counts, upload lists, playlists, video views, search results, or anything related to YouTube data. Trigger on phrases like 'check my YouTube', 'how are my videos doing', 'list my uploads', 'YouTube stats', 'video views', 'subscriber count', 'search YouTube for', 'my channel', or any reference to YouTube content management and analytics."
     }
   ]

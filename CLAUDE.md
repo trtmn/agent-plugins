@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Claude Code plugin marketplace. Every top-level directory is a publishable plugin; `.claude-plugin/marketplace.json` at the repo root registers them all.
+A Claude Code plugin marketplace. Plugins live under `plugins/`; `.claude-plugin/marketplace.json` at the repo root registers them all.
 
 Install path:
 ```
@@ -14,10 +14,10 @@ Install path:
 
 ## Plugin Directory Structure
 
-Each plugin lives in its own top-level folder. **Folder name matches the plugin name** (`plugin.json` → `name`):
+Each plugin lives under `plugins/`. **Folder name matches the plugin name** (`plugin.json` → `name`):
 
 ```
-<plugin-name>/
+plugins/<plugin-name>/
 ├── .claude-plugin/
 │   └── plugin.json               # Required — {name, description}
 ├── skills/<plugin-name>/
@@ -61,9 +61,9 @@ cowsay, font-extractor, home-assistant, homebrew-dev, imsg, learnings, mastodon-
 For day-to-day use on the author's machine, plugin agents/commands can be symlinked into `~/.claude/` so they resolve at runtime outside plugin-install context:
 
 ```bash
-ln -sf "$(pwd)/learnings/agents/learnings.md" ~/.claude/agents/learnings.md
-ln -sf "$(pwd)/self-improvement/agents/self-improvement.md" ~/.claude/agents/self-improvement.md
-ln -sf "$(pwd)/self-improvement/commands/self-improvement.md" ~/.claude/commands/self-improvement.md
+ln -sf "$(pwd)/plugins/learnings/agents/learnings.md" ~/.claude/agents/learnings.md
+ln -sf "$(pwd)/plugins/self-improvement/agents/self-improvement.md" ~/.claude/agents/self-improvement.md
+ln -sf "$(pwd)/plugins/self-improvement/commands/self-improvement.md" ~/.claude/commands/self-improvement.md
 ```
 
 ## History
