@@ -3,12 +3,13 @@
 ## Table of contents
 1. [All source/destination values](#source-destination-values)
 2. [Full acls syntax](#full-acls-syntax)
-3. [Grants syntax (new)](#grants-syntax)
-4. [SSH rules in detail](#ssh-rules-in-detail)
-5. [nodeAttrs section](#nodeattrs-section)
-6. [Tests and sshTests](#tests-and-sshtests)
-7. [Complete small-team example](#complete-small-team-example)
-8. [Complete enterprise example](#complete-enterprise-example)
+3. [Grants syntax (GA)](#grants-syntax)
+4. [Postures section](#postures-section)
+5. [SSH rules in detail](#ssh-rules-in-detail)
+6. [nodeAttrs section](#nodeattrs-section)
+7. [Tests and sshTests](#tests-and-sshtests)
+8. [Complete small-team example](#complete-small-team-example)
+9. [Complete enterprise example](#complete-enterprise-example)
 
 ---
 
@@ -75,7 +76,7 @@ Add `"proto": "tcp"` or `"proto": "udp"` to an ACL rule to restrict by protocol.
 
 ## Grants syntax
 
-Grants are the recommended replacement for acls in new policies. Key differences:
+Grants are **GA (May 2025) and the default for new tailnets**. Key differences from acls:
 - No `action` field (always grant)
 - Port/protocol moves from `dst` to `ip` field
 - Supports application-layer capability grants
@@ -135,6 +136,77 @@ Grants are the recommended replacement for acls in new policies. Key differences
   "dst": ["tag:web"],
   "ip":  ["tcp:80", "tcp:443"],
 }
+```
+
+---
+
+## Postures section
+
+Device posture lets you require that source devices meet security criteria before a grant applies. Only supported in `grants` (not `acls`).
+
+```hujson
+"postures": {
+  "posture:corp-device": [
+    // All conditions must be true (AND logic)
+    "node:tsReleaseTrack == 'stable'",
+    "node:tsVersion >= '1.60'",
+    "node:tsStateEncrypted == true",   // client state file is encrypted (2026+)
+  ],
+  "posture:has-edr": [
+    "node:huntress IS SET",            // EDR agent present (IS SET / NOT SET operators, 2026+)
+  ],
+  "posture:no-edr": [
+    "node:huntress NOT SET",
+  ],
+},
+```
+
+### Posture attribute operators
+
+| Operator | Example | Meaning |
+|---|---|---|
+| `==` | `node:os == 'macos'` | Exact match |
+| `!=` | `node:os != 'windows'` | Not equal |
+| `>=` | `node:tsVersion >= '1.60'` | Version comparison |
+| `IS SET` | `node:huntress IS SET` | Attribute exists (any value) |
+| `NOT SET` | `node:huntress NOT SET` | Attribute absent |
+
+### Common posture attributes
+
+| Attribute | Values |
+|---|---|
+| `node:os` | `macos`, `windows`, `linux`, `ios`, `android` |
+| `node:tsVersion` | semver string, e.g. `1.60.0` |
+| `node:tsReleaseTrack` | `stable`, `unstable` |
+| `node:tsStateEncrypted` | `true` / `false` |
+| `node:huntress` | presence indicates Huntress EDR enrolled |
+
+### Using postures in grants
+
+```hujson
+"grants": [
+  {
+    "src":        ["group:sre"],
+    "srcPosture": ["posture:corp-device"],   // device must pass posture check
+    "dst":        ["tag:prod"],
+    "ip":         ["*"],
+  },
+],
+```
+
+### Posture in tests
+
+```hujson
+"tests": [
+  {
+    "src": "alice@example.com",
+    "srcPostureAttrs": {
+      "node:os": "macos",
+      "node:tsStateEncrypted": "true",
+    },
+    "accept": ["tag:prod:22"],
+  },
+],
 ```
 
 ---
