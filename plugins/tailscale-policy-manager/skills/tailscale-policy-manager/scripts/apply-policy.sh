@@ -42,6 +42,11 @@ RESPONSE=$(curl -si \
 
 ETAG=$(echo "$RESPONSE" | grep -i "^etag:" | awk '{print $2}' | tr -d '\r\n"')
 
+if [[ -z "$ETAG" ]]; then
+  echo "ERROR: Could not extract ETag from response — aborting" >&2
+  exit 1
+fi
+
 echo "Applying policy (ETag: ${ETAG})..." >&2
 
 # Step 3: Apply with ETag collision detection
