@@ -111,22 +111,24 @@ All new entries start as `Status: pending`. They stay pending until a `/self-imp
 
 **Act, don't narrate.** Log it, say one line, move on.
 
+## Self-Check on First Delegation
+
+Before firing the `learnings` subagent for the first time in a session, verify `~/.claude/agents/learnings.md` exists. If it doesn't, surface a one-line warning instead of silently failing:
+
+> "⚠ learnings agent not wired up — run `/learnings:setup` to fix it."
+
+Do not block the current task. Just warn once and move on.
+
 ## Installation
 
-Link the subagent into your Claude Code user config:
+After installing the plugin, run the setup command to wire everything up:
 
-```bash
-ln -sf "$(pwd)/agents/learnings.md" ~/.claude/agents/learnings.md
+```
+/learnings:setup
 ```
 
-Then add this to `~/.claude/CLAUDE.md` so main Claude knows to delegate:
+This runs `scripts/setup.sh` from the plugin's install directory, which:
+1. Creates `~/.claude/agents/learnings.md` as a symlink to the installed agent file (resolves the hash-versioned path automatically).
+2. Appends the Passive Logging section to `~/.claude/CLAUDE.md` so main Claude knows to delegate.
 
-```markdown
-## Passive Logging
-
-When a trigger fires (user correction, command failure, feature gap, knowledge gap, useful
-suggestion), delegate to the `learnings` subagent via the Agent tool, with
-`run_in_background: true`. Do not ask first. Acknowledge in one line after handing off.
-
-Triggers, entry schemas, and file locations: see the `learnings` skill in agent-skills.
-```
+The script is idempotent — re-running after an update is safe.

@@ -31,13 +31,21 @@ Never auto-promote. Capture is free; promotion is deliberate.
 
 There is no separate ARCHIVE file. `CHANGELOG.md` is the single sink: promoted entries, skipped entries, and reversions all live there with a `Disposition` field.
 
+## Dependency Check
+
+Before delegating to the subagent, verify `~/.claude/agents/learnings.md` exists. If it doesn't:
+
+> "⚠ The `learnings` agent isn't wired up — passive capture won't fire. Run `/learnings:setup` to fix it, then re-run `/self-improvement`."
+
+Do not proceed without learnings wired up — the session sweep and ongoing auto-logging both depend on it.
+
 ## Workflow
 
 Delegate the entire review to the `self-improvement` subagent via the Agent tool (`subagent_type: self-improvement`, `run_in_background: true`). It runs in its own context window so the review can scan all pending entries without consuming the main session's tokens, and in the background so the main conversation stays responsive during the sweep. The main agent gets a completion notification with the proposals, then walks through decisions with the user in a follow-up turn.
 
 The subagent must:
 
-1. **Session sweep.** Re-read the current conversation for any corrections, errors, suggestions, or feature gaps that the `learnings` agent may have missed. Log any findings (same format and path as the `learnings` agent — the subagent owns both roles during a review). Autonomous capture is best-effort; this step is the safety net.
+1. **Session sweep.** Re-read the current conversation for any corrections, errors, suggestions, or feature gaps that the `learnings` agent may have missed. For each uncaptured event, fire a `learnings` subagent (`subagent_type: learnings`, `model: haiku`, `run_in_background: true`) immediately — don't batch, capture the moment you see it. Also fire background learnings agents for any new insights discovered while reading pending entries, analyzing GitHub PRs, or walking through promotions. Autonomous capture is best-effort; this step is the safety net.
 2. **Read pending entries** from `~/.learnings/LEARNINGS.md`, `ERRORS.md`, `FEATURE_REQUESTS.md` (anything with `Status: pending`).
 3. **Group and summarize** candidates worth promoting, organized by theme.
 4. **Propose** for each candidate: target CLAUDE.md (user vs. project), section, proposed text, one-line rationale.

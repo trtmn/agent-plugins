@@ -1,5 +1,7 @@
 Run the self-improvement review workflow: sweep the current session for anything autonomous capture missed, review pending entries in `~/.learnings/`, and propose promotions to CLAUDE.md for my approval.
 
+First, check that `~/.claude/agents/learnings.md` exists. If it doesn't, stop and tell me: "⚠ The `learnings` agent isn't wired up. Run `/learnings:setup` first." Do not proceed without it.
+
 Delegate the whole workflow to the `self-improvement` subagent via the Agent tool (`subagent_type: self-improvement`, `run_in_background: true`). The subagent runs in its own context window so this review doesn't consume main-session tokens, and in the background so the main conversation stays responsive while the sweep + proposal generation happens. I'll get a completion notification with the proposals, and then we walk through decisions together in a follow-up turn.
 
 The subagent will:
