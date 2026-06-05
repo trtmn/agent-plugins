@@ -44,7 +44,7 @@ plugins/<plugin-name>/
 
 ## Existing Plugins
 
-cowsay, font-extractor, home-assistant, homebrew-dev, imsg, learnings, mastodon-cli, obsidian-cli, preflight-check, pushover, quack, recipe-fetch, self-improvement, skills-manager, tailscale-policy-manager, touch_file, unifi-api, wp-custom-theme, youtube-data-api.
+cowsay, font-extractor, home-assistant, homebrew-dev, imsg, learnings, mastodon-cli, obsidian-cli, preflight-check, pushover, quack, recipe-fetch, self-improvement, side-quest, skills-manager, tailscale-policy-manager, touch_file, unifi-api, video-extract, wp-custom-theme, youtube-data-api.
 
 `learnings` and `self-improvement` are a pair:
 - `learnings` — autonomous capture. Main Claude delegates to the `learnings` subagent **in the background** on every correction/error/suggestion.
