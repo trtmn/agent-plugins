@@ -74,6 +74,11 @@
       "description": "User-triggered review and promotion of accumulated learnings. Reads pending entries from ~/.learnings/, proposes promotion candidates to CLAUDE.md, and lets the user approve each one. Use this skill when the user explicitly asks to review learnings, promote entries, do an end-of-session retrospective, or analyze GitHub PRs/issues for recurring patterns. Also use on phrases like \"promote\", \"review learnings\", \"what have we learned\", or \"self-improvement\". Do NOT use this skill for logging — that is the separate `learnings` skill (autonomous, background capture)."
     },
     {
+      "name": "side-quest",
+      "source": "./plugins/side-quest",
+      "description": "Launch background subagent(s) to handle a task as a side quest while the main conversation stays free. Use when the user types /side-quest or asks to run a task as a side quest. Rates the task's difficulty (Challenge Rating) to pick the model — haiku for trivial quests, sonnet for standard quests, opus for boss fights — honors a user-named model override, splits decomposable tasks across a party of parallel agents, and reports launch and completion in Dungeons & Dragons style emoji and flavor, always paired with a plain-English summary."
+    },
+    {
       "name": "skills-manager",
       "source": "./plugins/skills-manager",
       "description": "Install, remove, list, find, and update Claude Code skills using the `npx skills` CLI. Use this skill whenever the user wants to manage their agent skills — install a new skill, search the skills registry, remove a skill, check for updates, or update all skills. Also trigger for requests like \"find me a skill for X\", \"install the Y skill\", \"what skills do I have installed\", \"remove the Z skill\", or \"are my skills up to date.\""
