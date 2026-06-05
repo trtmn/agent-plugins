@@ -7,6 +7,8 @@ description: >
   sonnet for standard quests, opus for boss fights — honors a user-named model override, splits
   decomposable tasks across a party of parallel agents, and reports launch and completion in
   Dungeons & Dragons style emoji and flavor, always paired with a plain-English summary.
+  Awards D&D 5e XP by Challenge Rating on completion and keeps a persistent XP/level ledger
+  at ~/.claude/side-quest/xp.json, shared across all sessions and ready for status-bar integration.
 allowed-tools: Agent, AskUserQuestion, Read, Glob, Grep, Bash
 ---
 
@@ -32,7 +34,9 @@ Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends
 
 4. **Quest acceptance.** 📜 scroll with quest name, CR, party composition, dice-roll flair — then a `> **Plain English:**` block stating exactly what launched, on which model, and what happens next.
 
-5. **Quest report.** On completion: 🏆 loot report (concrete results) + plain-English summary. On failure: 💀 party-wiped report + plain-English error and suggested next step. Results are reported faithfully — partial or failed work is never inflated.
+5. **XP award.** On completion, `scripts/xp.sh award <cr> <outcome> "<quest>"` grants real D&D 5e XP by CR (CR 1 = 200 … CR 5 = 1,800, up to CR 10) — full XP on success, half on partial, zero on a party wipe. The ledger at `~/.claude/side-quest/xp.json` tracks total XP, level (5e advancement table: Lv 2 at 300, Lv 3 at 900, Lv 4 at 2,700 …), quest count, and the last 100 quests. Atomic writes; any session or agent can read it.
+
+6. **Quest report.** On completion: 🏆 loot report (concrete results) + XP line with the script's real numbers (+ 🎉 LEVEL UP when crossed) + plain-English summary. On failure: 💀 party-wiped report, zero XP, plain-English error and suggested next step. Results are reported faithfully — partial or failed work is never inflated, and XP follows honesty.
 
 ## Example
 
@@ -53,11 +57,17 @@ Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends
 
 ```
 🏆 **QUEST COMPLETE!** 🐉 The dragon is slain!
-💰 Loot: 3 files changed, all tests passing ✨ +150 XP
+💰 Loot: 3 files changed, all tests passing
+✨ +700 XP → 700 total (Level 2, next at 900)
+🎉 **LEVEL UP!** Welcome to Level 2, adventurer!
 
 > **Plain English:** The refactor is done — 3 files changed,
 > tests pass. Summary of changes below.
 ```
+
+## Status-bar integration
+
+`scripts/xp.sh statusline` prints a one-liner (`⚔️ Lv 3 · 2,025 XP`) built for Claude Code's `statusLine` setting. To show your XP in the status bar, point `statusLine.command` in `~/.claude/settings.json` at the script (or fold its output into an existing statusline script). The ledger is a plain JSON file, so any other status-bar tool can read `~/.claude/side-quest/xp.json` directly.
 
 ## Principles
 

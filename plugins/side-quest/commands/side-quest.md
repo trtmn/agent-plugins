@@ -40,24 +40,39 @@ Respond with the full-immersion acceptance scroll, then the mandatory plain-Engl
 
 Then end your turn — do not poll or block on the agents.
 
-## 5. Report the outcome
+## 5. Award the XP
 
-When the completion notification arrives, relay the result:
+When the completion notification arrives, award XP **before** writing the report:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/xp.sh" award <cr> <success|partial|wipe> "<quest name>"
+```
+
+- `success` → full 5e XP for the CR · `partial` → half · `wipe` → zero. Judge the outcome honestly from the agent's actual results.
+- For a party quest, award once per sub-quest with each sub-quest's outcome.
+- The script prints JSON: `awarded`, `total_xp`, `level`, `leveled_up`, `quests_completed`, `next_level_at`. Use these real numbers in the report — never invent XP.
+- The ledger lives at `~/.claude/side-quest/xp.json`, shared across all sessions and agents.
+
+## 6. Report the outcome
 
 **Success:**
 
 ```
 🏆 **QUEST COMPLETE!** 🐉 <flavor line>
-💰 Loot: <concrete results — files changed, findings, artifacts> ✨ +<n> XP
+💰 Loot: <concrete results — files changed, findings, artifacts>
+✨ +<awarded> XP → <total_xp> total (Level <level>, next at <next_level_at>)
 
 > **Plain English:** <what the agent(s) actually did or found,
 > with specifics the user can act on>.
 ```
 
+If `leveled_up` is true, add a line: `🎉 **LEVEL UP!** Welcome to Level <level>, adventurer!`
+
 **Failure:**
 
 ```
 💀 **PARTY WIPED.** <flavor line>
+✨ +0 XP — the dungeon grants nothing to the fallen (<total_xp> total, Level <level>)
 
 > **Plain English:** <what failed and why, verbatim error if short,
 > and a suggested next step>.
@@ -66,4 +81,5 @@ When the completion notification arrives, relay the result:
 ## Rules
 
 - The plain-English block is **mandatory** in every themed response. Flavor never replaces information.
-- Report results faithfully — if the agent's work failed or was partial, the loot report says so. No inflating the haul.
+- Report results faithfully — if the agent's work failed or was partial, the loot report says so. XP follows honesty: partial work earns half, failures earn zero. No inflating the haul.
+- XP numbers come from the script's output only. If the script fails, say so plainly and skip the XP line — don't fabricate totals.
