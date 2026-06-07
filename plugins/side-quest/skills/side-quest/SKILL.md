@@ -12,6 +12,18 @@ description: >
 allowed-tools: Agent, AskUserQuestion, Read, Glob, Grep, Bash
 ---
 
+## First-time setup
+
+Copy `xp.sh` to a stable location so the CLAUDE.md ambient-XP rule can reference it independently of plugin cache paths:
+
+```bash
+mkdir -p ~/.claude/side-quest
+cp "$(dirname "$0")/../scripts/xp.sh" ~/.claude/side-quest/xp.sh
+chmod +x ~/.claude/side-quest/xp.sh
+```
+
+Run this once after installing the plugin (or after updating it). The ledger at `~/.claude/side-quest/xp.json` is shared between the stable copy and the plugin script.
+
 # Side Quest
 
 Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends the work to background subagents and narrates the journey in D&D style — every themed response paired with a mandatory plain-English translation, so the flavor never costs you information.
@@ -34,7 +46,7 @@ Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends
 
 4. **Quest acceptance.** 📜 scroll with quest name, CR, party composition, dice-roll flair — then a `> **Plain English:**` block stating exactly what launched, on which model, and what happens next.
 
-5. **XP award.** On completion, `scripts/xp.sh award <cr> <outcome> "<quest>"` grants real D&D 5e XP by CR (CR 1 = 200 … CR 5 = 1,800, up to CR 10) — full XP on success, half on partial, zero on a party wipe. The ledger at `~/.claude/side-quest/xp.json` tracks total XP, level (5e advancement table: Lv 2 at 300, Lv 3 at 900, Lv 4 at 2,700 …), quest count, and the last 100 quests. Atomic writes; any session or agent can read it.
+5. **XP award.** On completion, `scripts/xp.sh award <cr> <outcome> --source side-quest "<quest>"` grants real D&D 5e XP by CR (CR 1 = 200 … CR 5 = 1,800, up to CR 10) — full XP on success, half on partial, zero on a party wipe. The ledger at `~/.claude/side-quest/xp.json` tracks total XP, level (5e advancement table: Lv 2 at 300, Lv 3 at 900, Lv 4 at 2,700 …), quest count, and the last 100 quests. Atomic writes; any session or agent can read it.
 
 6. **Quest report.** On completion: 🏆 loot report (concrete results) + XP line with the script's real numbers (+ 🎉 LEVEL UP when crossed) + plain-English summary. On failure: 💀 party-wiped report, zero XP, plain-English error and suggested next step. Results are reported faithfully — partial or failed work is never inflated, and XP follows honesty.
 
