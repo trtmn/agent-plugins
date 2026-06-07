@@ -73,7 +73,12 @@ if cmd == "award":
     if outcome not in ("success", "partial", "wipe"):
         print(f"unknown outcome: {outcome}", file=sys.stderr)
         sys.exit(2)
-    quest = " ".join(sys.argv[4:]) or "Unnamed quest"
+    rest = sys.argv[4:]
+    source = "ambient"
+    if len(rest) >= 2 and rest[0] == "--source":
+        source = rest[1]
+        rest = rest[2:]
+    quest = " ".join(rest) or "Unnamed quest"
 
     base = XP_BY_CR[cr]
     awarded = {"success": base, "partial": base // 2, "wipe": 0}[outcome]
@@ -86,6 +91,7 @@ if cmd == "award":
     data["history"].append({
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "quest": quest, "cr": cr, "outcome": outcome, "xp": awarded,
+        "source": source,
     })
     data["history"] = data["history"][-HISTORY_CAP:]
     save(data)
