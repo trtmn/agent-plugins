@@ -45,7 +45,7 @@ Then end your turn — do not poll or block on the agents.
 When the completion notification arrives, award XP **before** writing the report:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/xp.sh" award <cr> <success|partial|wipe> "<quest name>"
+"${CLAUDE_PLUGIN_ROOT}/scripts/xp.sh" award <cr> <success|partial|wipe> --source side-quest "<quest name>"
 ```
 
 - `success` → full 5e XP for the CR · `partial` → half · `wipe` → zero. Judge the outcome honestly from the agent's actual results.
