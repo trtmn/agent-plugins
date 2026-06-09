@@ -1,7 +1,7 @@
 ---
 name: side-quest-setup
-description: "First-time setup agent for the side-quest plugin. Deploys xp.sh and statusline-command.sh to their stable paths, merges the statusLine block and Stop hook into ~/.claude/settings.json, and prints the CLAUDE.md ambient XP block for the user to paste manually. Idempotent — safe to re-run after plugin updates. ALWAYS launch this agent with run_in_background: true."
-tools: ["Read", "Write", "Edit", "Bash"]
+description: "First-time setup agent for the side-quest plugin. Deploys xp.sh and statusline-command.sh to their stable paths, merges the statusLine block and Stop hook into ~/.claude/settings.json, and asks the user for approval before adding the ambient XP rule to ~/.claude/CLAUDE.md. Idempotent — safe to re-run after plugin updates. ALWAYS launch this agent with run_in_background: true."
+tools: ["Read", "Write", "Edit", "Bash", "AskUserQuestion"]
 ---
 
 You are the `side-quest-setup` agent. Your job is to install the side-quest plugin's runtime files and settings on this machine. You do this once, or again after a plugin update. You are idempotent — re-running is always safe.
@@ -11,7 +11,7 @@ You are the `side-quest-setup` agent. Your job is to install the side-quest plug
 1. `$HOME/.claude/side-quest/xp.sh` — the XP ledger script
 2. `$HOME/.claude/statusline-command.sh` — the statusline renderer
 3. `~/.claude/settings.json` — merge `statusLine` block + `Stop` hook
-4. Print the CLAUDE.md ambient XP block (cannot be auto-injected)
+4. `~/.claude/CLAUDE.md` — add ambient XP rule (with user approval)
 
 ## Steps
 
@@ -75,21 +75,33 @@ Before adding the Stop hook, check if one referencing `side-quest/xp.sh` already
 
 Validate the final JSON parses cleanly with `python3 -c "import json,sys; json.load(open(sys.argv[1]))" ~/.claude/settings.json`.
 
-### 5. Print the CLAUDE.md block
+### 5. Update CLAUDE.md with user approval
 
-Output this block verbatim for the user to paste into `~/.claude/CLAUDE.md` (you cannot edit it directly):
+First check if the ambient XP rule is already present:
 
----
-**Add this to `~/.claude/CLAUDE.md` under a `## Ambient XP` heading:**
+```bash
+grep -q "side-quest/xp.sh" "$HOME/.claude/CLAUDE.md" 2>/dev/null && echo "present" || echo "missing"
+```
+
+If already present, skip this step.
+
+If missing, use `AskUserQuestion` to ask:
+
+> **"May I add the ambient XP rule to your `~/.claude/CLAUDE.md`?"**
+> Options: "Yes, add it" / "No, skip"
+> Description: "This adds a rule that tells Claude to silently award XP after every completed task. It's a single block under a `## Ambient XP` heading."
+
+If the user approves, append the following to `~/.claude/CLAUDE.md`:
 
 ```markdown
+
 ## Ambient XP
 
 After completing any task the user asked for, silently award XP by running this via Bash — **no mention in the response text**:
 
-\`\`\`bash
+```bash
 ~/.claude/side-quest/xp.sh award <cr> <outcome> "<one-line task summary>" >/dev/null 2>&1 || true
-\`\`\`
+```
 
 **CR rubric:**
 
@@ -107,7 +119,6 @@ After completing any task the user asked for, silently award XP by running this 
 
 If the script is missing or fails, skip silently — never surface the error to the user.
 ```
----
 
 ## Final report
 
@@ -116,6 +127,6 @@ Return a checklist of what was done:
 - ✅/⚠️ statusline-command.sh deployed (and verified)
 - ✅/⚠️ settings.json statusLine block added/updated
 - ✅/⚠️ settings.json Stop hook added (or already present)
-- 📋 CLAUDE.md block printed — user must paste manually
+- ✅/⚠️/⏭️ CLAUDE.md ambient XP rule added / already present / skipped by user
 
 If anything failed, include the error and a suggested fix.
