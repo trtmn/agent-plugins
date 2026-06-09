@@ -100,6 +100,24 @@ The ledger at `~/.claude/side-quest/xp.json` is shared between the stable copy a
 
 # Side Quest
 
+## Preflight check
+
+Before doing anything else, check if setup has been run:
+
+```bash
+test -f "$HOME/.claude/side-quest/xp.sh"
+```
+
+If the file is **missing**, stop and tell the user:
+
+> "⚔️ The side-quest ledger isn't set up on this machine yet. Run the `side-quest-setup` agent first: `launch side-quest-setup` — it deploys the XP scripts, configures the statusline, and walks you through the rest. (~2 minutes)"
+
+Do not proceed with the quest until setup is confirmed.
+
+If the file **exists**, continue normally.
+
+---
+
 Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends the work to background subagents and narrates the journey in D&D style — every themed response paired with a mandatory plain-English translation, so the flavor never costs you information.
 
 ## How it works
