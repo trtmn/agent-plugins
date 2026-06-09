@@ -19,7 +19,8 @@ Each plugin lives under `plugins/`. **Folder name matches the plugin name** (`pl
 ```
 plugins/<plugin-name>/
 ├── .claude-plugin/
-│   └── plugin.json               # Required — {name, description}
+│   └── plugin.json               # Required — {name, version, description}
+├── CHANGELOG.md                  # Required — version history (Keep a Changelog format)
 ├── skills/<plugin-name>/
 │   ├── SKILL.md                  # Canonical skill definition (YAML frontmatter + body)
 │   ├── scripts/                  # Optional executables invoked by the skill
@@ -34,7 +35,8 @@ plugins/<plugin-name>/
 ## Conventions
 
 - **SKILL.md is the contract.** YAML frontmatter must include `name`, `description`, and `allowed-tools`. The `name` must match the folder name and the `skills/<name>/` directory name.
-- **plugin.json is minimal.** Just `{name, description}` — description copied verbatim from SKILL.md frontmatter.
+- **plugin.json is minimal.** Just `{name, version, description}` — description copied verbatim from SKILL.md frontmatter. Version follows SemVer (`MAJOR.MINOR.PATCH`).
+- **CHANGELOG.md is required.** Lives at the plugin root. Add a `## [x.y.z] — YYYY-MM-DD` entry when bumping the version. Patch = fix/tweak, Minor = new capability, Major = breaking change.
 - **Scripts run standalone.** Only their output enters Claude's context. Bash scripts use `set -e`, status to stderr, machine-readable JSON to stdout.
 - **References stay separate.** Large API docs and specs go in `references/` so they aren't loaded until the skill needs them.
 - **Agent definitions default to background.** Any subagent shipped under `agents/` must include `"ALWAYS launch this agent with run_in_background: true"` in its description, so callers don't block the main conversation.
