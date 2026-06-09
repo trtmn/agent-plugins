@@ -167,29 +167,31 @@ if [ -n "$model" ]; then
   printf "  \033[2m%s\033[0m" "$model"
 fi
 
+printf "\n"
+
+# Line 2: side-quest XP
 if [ -n "$xp_level" ]; then
   if [ "$xp_levelup" = "true" ]; then
     # Level-up: alternate between two styles every second for a flash effect
     tick=$(( $(date +%s) % 2 ))
     if [ "$tick" -eq 0 ]; then
-      printf "  \033[1;35m⚔️ 🎉 LEVEL UP! Lv%s 🆙 %s\033[0m" "$xp_level" "$xp_award"
+      printf "\033[1;35m⚔️ 🎉 LEVEL UP! Lv%s 🆙 %s\033[0m\n" "$xp_level" "$xp_award"
     else
-      printf "  \033[1;33m⚔️ ✨ LEVEL UP! Lv%s ✨ %s\033[0m" "$xp_level" "$xp_award"
+      printf "\033[1;33m⚔️ ✨ LEVEL UP! Lv%s ✨ %s\033[0m\n" "$xp_level" "$xp_award"
     fi
   else
     # sword + level in bold cyan, XP total in yellow, to-next dim white
-    printf "  ⚔️ \033[1;36mLv%s\033[0m \033[33m%s XP\033[0m \033[2;37m(%s)\033[0m" \
+    printf "⚔️ \033[1;36mLv%s\033[0m \033[33m%s XP\033[0m \033[2;37m(%s)\033[0m" \
       "$xp_level" "$xp_total" "$xp_to_next"
     # transient award in bright green
     if [ -n "$xp_award" ]; then
       printf "  \033[1;32m%s ✨\033[0m" "$xp_award"
     fi
+    printf "\n"
   fi
 fi
 
-printf "\n"
-
-# Line 2: context usage + cache info
+# Line 3: context usage + cache info
 ctx_cache_line=""
 if [ -n "$ctx_str" ]; then
   ctx_cache_line="$ctx_str"
@@ -205,7 +207,7 @@ if [ -n "$ctx_cache_line" ]; then
   printf "\033[2m%s\033[0m\n" "$ctx_cache_line"
 fi
 
-# Line 3: rate limit info (only printed when data is present)
+# Line 4: rate limit info (only printed when data is present)
 rate_line=""
 if [ -n "$five_str" ]; then
   rate_line="$five_str"
