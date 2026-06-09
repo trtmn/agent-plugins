@@ -25,25 +25,32 @@ HISTORY_CAP = 100
 XP_BY_CR = {1: 200, 2: 450, 3: 700, 4: 1100, 5: 1800,
             6: 2300, 7: 2900, 8: 3900, 9: 5000, 10: 5900}
 
-# D&D 5e character advancement: XP threshold to *reach* each level
-LEVEL_XP = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000,
-            85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000,
-            305000, 355000]  # index 0 -> level 1
+# Pokemon Go-style geometric curve: L2=1000 XP, each step ×1.05, no level cap.
+def _build_thresholds(target):
+    """Build enough thresholds to cover target XP."""
+    thresholds = [0, 1000]
+    step = 1000
+    while thresholds[-1] <= target:
+        step = round(step * 1.05 / 50) * 50
+        thresholds.append(thresholds[-1] + step)
+    return thresholds
 
 
 def level_for(xp):
+    thresholds = _build_thresholds(xp)
     level = 1
-    for i, threshold in enumerate(LEVEL_XP):
+    for i, threshold in enumerate(thresholds):
         if xp >= threshold:
             level = i + 1
     return level
 
 
 def next_level_at(xp):
-    for threshold in LEVEL_XP:
+    thresholds = _build_thresholds(xp)
+    for threshold in thresholds:
         if xp < threshold:
             return threshold
-    return None  # level 20: campaign complete
+    return None  # shouldn't happen since we build past xp
 
 
 def load():
@@ -92,8 +99,12 @@ if cmd == "award":
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "quest": quest, "cr": cr, "outcome": outcome, "xp": awarded,
         "source": source,
+        "leveled_up": data["level"] > old_level,
+        "new_level": data["level"],
     })
     data["history"] = data["history"][-HISTORY_CAP:]
+    nla = next_level_at(data["total_xp"])
+    data["next_level_at"] = nla
     save(data)
 
     print(json.dumps({
@@ -102,15 +113,19 @@ if cmd == "award":
         "level": data["level"],
         "leveled_up": data["level"] > old_level,
         "quests_completed": data["quests_completed"],
-        "next_level_at": next_level_at(data["total_xp"]),
+        "next_level_at": nla,
     }))
 
 elif cmd == "status":
+    # Recompute level and next_level_at in case LEVEL_XP table changed since last award
+    data["level"] = level_for(data["total_xp"])
+    data["next_level_at"] = next_level_at(data["total_xp"])
+    save(data)
     print(json.dumps({
         "total_xp": data["total_xp"],
         "level": data["level"],
         "quests_completed": data["quests_completed"],
-        "next_level_at": next_level_at(data["total_xp"]),
+        "next_level_at": data["next_level_at"],
     }))
 
 elif cmd == "statusline":
