@@ -14,15 +14,89 @@ allowed-tools: Agent, AskUserQuestion, Read, Glob, Grep, Bash
 
 ## First-time setup
 
-Copy `xp.sh` to a stable location so the CLAUDE.md ambient-XP rule can reference it independently of plugin cache paths:
+Run these steps once after installing the plugin (or after updating it). All paths use `$HOME` so they work for any user.
+
+### 1. Deploy `xp.sh` to its stable path
+
+The ambient-XP CLAUDE.md rule references `~/.claude/side-quest/xp.sh` directly, independent of the plugin cache path. Deploy it with:
 
 ```bash
-mkdir -p ~/.claude/side-quest
-cp "$(dirname "$0")/../scripts/xp.sh" ~/.claude/side-quest/xp.sh
-chmod +x ~/.claude/side-quest/xp.sh
+mkdir -p "$HOME/.claude/side-quest"
+cp "${CLAUDE_PLUGIN_ROOT}/scripts/xp.sh" "$HOME/.claude/side-quest/xp.sh"
+chmod +x "$HOME/.claude/side-quest/xp.sh"
 ```
 
-Run this once after installing the plugin (or after updating it). The ledger at `~/.claude/side-quest/xp.json` is shared between the stable copy and the plugin script.
+### 2. Deploy `statusline-command.sh`
+
+The statusline script renders the full Claude Code status bar (user@host, git branch, context usage, rate limits, and XP level). Deploy it with:
+
+```bash
+cp "${CLAUDE_PLUGIN_ROOT}/scripts/statusline-command.sh" "$HOME/.claude/statusline-command.sh"
+chmod +x "$HOME/.claude/statusline-command.sh"
+```
+
+### 3. Add the `statusLine` block to `~/.claude/settings.json`
+
+Merge this into the top-level object in `~/.claude/settings.json`:
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "bash ~/.claude/statusline-command.sh",
+  "refreshInterval": 1
+}
+```
+
+### 4. Add the Stop hook to `~/.claude/settings.json`
+
+This hook awards a CR 1 fallback XP entry after any session where no XP was recorded in the last 120 seconds (catches conversational sessions the ambient rule misses). Merge into the `hooks` object:
+
+```json
+"Stop": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "python3 -c \"\nimport json, sys\nfrom pathlib import Path\nfrom datetime import datetime, timezone\nf = Path.home() / '.claude/side-quest/xp.json'\nif f.exists():\n    h = json.loads(f.read_text()).get('history', [])\n    if h:\n        dt = datetime.fromisoformat(h[-1]['ts'])\n        if (datetime.now(timezone.utc) - dt).total_seconds() < 120:\n            sys.exit(0)\nsys.exit(1)\n\" && exit 0; ~/.claude/side-quest/xp.sh award 1 success --source stop-hook 'turn completed' 2>/dev/null || true",
+        "async": true,
+        "timeout": 15
+      }
+    ]
+  }
+]
+```
+
+### 5. Add the ambient XP rule to `~/.claude/CLAUDE.md`
+
+This rule instructs Claude to silently award XP after completing any user-requested task. Add this block to your global `~/.claude/CLAUDE.md`:
+
+```markdown
+## Ambient XP
+
+After completing any task the user asked for, silently award XP by running this via Bash — **no mention in the response text**:
+
+```bash
+~/.claude/side-quest/xp.sh award <cr> <outcome> "<one-line task summary>" >/dev/null 2>&1 || true
+```
+
+**CR rubric:**
+
+| CR | Difficulty | Examples |
+|----|-----------|---------|
+| 1  | Trivial   | Lookups, renames, one-liner explanations with no tool use |
+| 2  | Simple    | Single-file edits, config tweaks, quick fixes |
+| 3  | Standard  | Multi-step tasks, multi-file changes, research with findings |
+| 4  | Complex   | Cross-cutting features, refactors spanning many files |
+| 5  | Boss fight | Architectural changes, large migrations, plugin builds |
+
+**Outcome:** `success` (completed as requested), `partial` (incomplete or worked around), `wipe` (task failed entirely).
+
+**Skip** for pure conversational turns where no tools were used and no action was taken (questions, explanations, clarifications).
+
+If the script is missing or fails, skip silently — never surface the error to the user.
+```
+
+The ledger at `~/.claude/side-quest/xp.json` is shared between the stable copy and the plugin script.
 
 # Side Quest
 
