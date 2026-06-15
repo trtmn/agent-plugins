@@ -46,11 +46,11 @@ plugins/<plugin-name>/
 
 ## Existing Plugins
 
-cowsay, font-extractor, home-assistant, homebrew-dev, imsg, learnings, mastodon-cli, obsidian-cli, preflight-check, pushover, quack, recipe-fetch, self-improvement, side-quest, skills-manager, tailscale-policy-manager, touch_file, unifi-api, video-extract, wp-custom-theme, youtube-data-api.
+cowsay, font-extractor, home-assistant, homebrew-dev, imsg, mastodon-cli, obsidian-cli, preflight-check, pushover, quack, recipe-fetch, self-improvement, side-quest, skills-manager, tailscale-policy-manager, touch_file, unifi-api, video-extract, wp-custom-theme, youtube-data-api.
 
-`learnings` and `self-improvement` are a pair:
-- `learnings` — autonomous capture. Main Claude delegates to the `learnings` subagent **in the background** on every correction/error/suggestion.
-- `self-improvement` — user-triggered review/promote. `/self-improvement` delegates to the `self-improvement` subagent, which proposes promotions to CLAUDE.md for human approval.
+`self-improvement` is the full **learning loop** in one plugin (as of v2.0.0 it absorbed the former standalone `learnings` plugin). It ships two skills + three agents:
+- **Capture** (`learnings` skill + agent) — autonomous. Main Claude delegates to the `learnings` subagent **in the background** on every correction/error/suggestion; it appends `Status: pending` entries to `~/.learnings/`.
+- **Review + auto-promote** (`self-improvement` skill + agent, plus the `learning-investigator` agent) — autonomous *and* manual. A gated `SessionEnd` hook spawns a detached headless `claude -p` review; `/self-improvement` runs the same pipeline foreground. The `learning-investigator` judges each entry against a conservative bar and the orchestrator auto-promotes qualifiers (user-scope) into `CLAUDE.md`, logging a revertible trail to `~/.learnings/CHANGELOG.md`. Undo with `/self-improvement:revert <PROMO-hex>`. Wire it up with `/self-improvement:setup`.
 
 ## Files to Know
 
@@ -63,10 +63,13 @@ cowsay, font-extractor, home-assistant, homebrew-dev, imsg, learnings, mastodon-
 For day-to-day use on the author's machine, plugin agents/commands can be symlinked into `~/.claude/` so they resolve at runtime outside plugin-install context:
 
 ```bash
-ln -sf "$(pwd)/plugins/learnings/agents/learnings.md" ~/.claude/agents/learnings.md
+ln -sf "$(pwd)/plugins/self-improvement/agents/learnings.md" ~/.claude/agents/learnings.md
 ln -sf "$(pwd)/plugins/self-improvement/agents/self-improvement.md" ~/.claude/agents/self-improvement.md
+ln -sf "$(pwd)/plugins/self-improvement/agents/learning-investigator.md" ~/.claude/agents/learning-investigator.md
 ln -sf "$(pwd)/plugins/self-improvement/commands/self-improvement.md" ~/.claude/commands/self-improvement.md
 ```
+
+Or just run `/self-improvement:setup` (which also deploys the scripts, merges the SessionEnd hook, and patches `~/.claude/CLAUDE.md`).
 
 ## History
 

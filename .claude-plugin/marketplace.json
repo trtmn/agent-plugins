@@ -34,11 +34,6 @@
       "description": "Terminal-based iMessage and SMS management via the command line. Use this skill whenever the user mentions texting, messaging, iMessage, SMS, conversations, chat history, message backups, or any interaction with their Messages database. Trigger for requests to send/receive messages, view conversation history, list chats, watch for incoming texts, export or backup messages, or manage iMessage/SMS data—even if the user doesn't explicitly say \"iMessage\" or \"SMS\". This is the right skill for anything involving text messages, group chats, or the Messages app accessed from the terminal."
     },
     {
-      "name": "learnings",
-      "source": "./plugins/learnings",
-      "description": "Autonomous capture of every correction, error, suggestion, and knowledge gap to ~/.learnings/ as it happens. Not user-invoked — this is the contract for passive logging. Main Claude delegates to the `learnings` subagent in the background the moment a trigger fires. For the user-triggered review-and-promote workflow, see the `self-improvement` skill."
-    },
-    {
       "name": "mastodon-cli",
       "source": "./plugins/mastodon-cli",
       "description": "Interact with Mastodon using the `toot` CLI — post statuses, read timelines, check notifications, search, follow/unfollow, boost, favourite, and manage your account. Use this skill whenever the user mentions Mastodon, tooting, fediverse, their timeline, mentions, boosts, favourites, followers, or anything related to social media posting on Mastodon. Also trigger when the user asks to check what's happening on social media, wants to share something publicly, asks about trending topics, or says things like 'post this', 'toot this', 'check my mentions', 'what's on my timeline', 'who followed me', or 'boost that'. Even casual references like 'share this on masto' or 'what's trending' should trigger this skill."
@@ -71,7 +66,7 @@
     {
       "name": "self-improvement",
       "source": "./plugins/self-improvement",
-      "description": "User-triggered review and promotion of accumulated learnings. Reads pending entries from ~/.learnings/, proposes promotion candidates to CLAUDE.md, and lets the user approve each one. Use this skill when the user explicitly asks to review learnings, promote entries, do an end-of-session retrospective, or analyze GitHub PRs/issues for recurring patterns. Also use on phrases like \"promote\", \"review learnings\", \"what have we learned\", or \"self-improvement\". Do NOT use this skill for logging — that is the separate `learnings` skill (autonomous, background capture)."
+      "description": "The full self-improvement learning loop: autonomous background capture of corrections, errors, and gaps to ~/.learnings/ (the `learnings` skill), plus autonomous review that investigates each pending entry and auto-promotes the qualifiers into CLAUDE.md with a conservative bar and a revertible CHANGELOG trail. Review fires on a gated SessionEnd hook (detached headless run) and on demand via /self-improvement. Undo with /self-improvement:revert. Run /self-improvement:setup after install."
     },
     {
       "name": "side-quest",
