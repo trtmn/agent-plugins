@@ -84,15 +84,17 @@ export SI_LEARNINGS="$LEARNINGS_DIR"
 export SI_CLAUDE="$HOME/.claude"
 
 # Least privilege instead of --dangerously-skip-permissions: a fixed tool allow-list
-# (no WebFetch/MCP/network tools) plus filesystem access scoped to ~/.learnings and
-# ~/.claude via --add-dir. An unattended run can't answer prompts, so anything outside
-# this allow-list is auto-denied (it won't hang). Both "Task" and "Agent" are listed so
-# the subagent-dispatch tool is permitted regardless of its name in this build.
+# plus filesystem access scoped to ~/.learnings and ~/.claude via --add-dir. An
+# unattended run can't answer prompts, so anything outside this allow-list is
+# auto-denied (it won't hang). NO general Bash: the only shell command the pipeline
+# needs is the Pushover summary, so Bash is restricted to `pushover *`. The agent
+# emits hex ids and timestamps itself rather than shelling out. "Task" covers
+# subagent dispatch (learning-investigator). No network/MCP tools are allowed.
 nohup bash -c '
   claude -p "$SI_PROMPT" \
     --model "$SI_MODEL" \
     --add-dir "$SI_LEARNINGS" --add-dir "$SI_CLAUDE" \
-    --allowedTools "Read,Edit,Write,Grep,Glob,Bash,Task,Agent" \
+    --allowedTools "Read,Edit,Write,Grep,Glob,Task,Bash(pushover *)" \
     > "$SI_LOG" 2>&1
   rmdir "$SI_LOCK" 2>/dev/null || true
 ' < /dev/null > /dev/null 2>&1 &

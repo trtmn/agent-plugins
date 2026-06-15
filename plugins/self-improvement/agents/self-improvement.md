@@ -51,15 +51,17 @@ Enforce a per-run promotion cap (`MAX_PROMOTIONS_PER_RUN`, default 3 — read `~
 - **`recommend: skip`**: append a `[SKIP-<hex>]` entry to `CHANGELOG.md`; remove the source entry from its pending file.
 - **`recommend: leave_pending`** (low/medium confidence, missing recurrence signal) and **`scope: project`**: leave the entry exactly where it is. Tally it for the summary.
 
-Generate all hex IDs fresh: `openssl rand -hex 3`.
+Generate all hex IDs fresh. The autonomous run restricts Bash to `pushover` only, so emit a random 6-hex-digit string directly (e.g. `a3f7c1`) rather than shelling out to `openssl`.
 
 ### 5. Notify (Pushover)
 
-Send a single summary push (skip silently if `pushover` is unavailable or `OP_SERVICE_ACCOUNT_TOKEN` is unset — never fail the run over the notification):
+Send a single summary push with a plain invocation (no shell operators or redirects, so it matches the `Bash(pushover *)` allow-list):
 
 ```bash
-pushover send "<summary>" --title "Autonomous review" 2>/dev/null || true
+pushover send "<summary>" --title "Autonomous review"
 ```
+
+If `pushover` is unavailable or `OP_SERVICE_ACCOUNT_TOKEN` is unset the call simply fails — ignore the error and finish the run. Never fail the review over the notification.
 
 The summary states: # swept, # promoted (with targets/sections), # skipped, # left pending, and explicitly names any **project-scoped** entries awaiting a manual `/self-improvement` inside their repo.
 
