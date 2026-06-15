@@ -41,7 +41,7 @@ Run investigators concurrently. Collect all verdicts before acting.
 
 ### 4. Act on verdicts
 
-Enforce a per-run promotion cap (`MAX_PROMOTIONS_PER_RUN`, default 3 — read `~/.learnings/config` if present). If more entries qualify than the cap, promote the highest-priority / strongest-recurrence ones and leave the rest pending.
+Enforce a per-run promotion cap (`MAX_PROMOTIONS_PER_RUN`, default 10 — read `~/.learnings/config` if present). This is a high runaway-backstop, not a routine limiter — the investigator's conservative bar is the real gate, so promote everything that clears it up to the cap. If more entries qualify than the cap, promote the highest-priority / strongest-recurrence ones and leave the rest pending.
 
 - **`recommend: promote`** (and within cap): 
   1. Read the target `CLAUDE.md` fully; final dedup check.

@@ -105,7 +105,7 @@ There is no separate archive file. `CHANGELOG.md` is the single sink and the bas
 REVIEW_THRESHOLD=5         # min user-level pending entries before an autonomous review fires
 COOLDOWN_HOURS=6           # min hours between autonomous reviews
 REVIEW_MODEL=sonnet        # model for the headless review (smaller = cheaper)
-MAX_PROMOTIONS_PER_RUN=3   # cap promotions per run (rest stay pending)
+MAX_PROMOTIONS_PER_RUN=10  # high runaway-backstop, not a routine limiter (rest stay pending)
 STALE_LOCK_MIN=120         # reclaim a review lock older than this (crashed run)
 ```
 
