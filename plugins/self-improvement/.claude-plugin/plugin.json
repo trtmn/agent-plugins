@@ -1,5 +1,5 @@
 {
   "name": "self-improvement",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "The full self-improvement learning loop: autonomous background capture of corrections, errors, and gaps to ~/.learnings/ (the `learnings` skill), plus autonomous review that investigates each pending entry and auto-promotes the qualifiers into CLAUDE.md with a conservative bar and a revertible CHANGELOG trail. Review fires on a gated SessionEnd hook (detached headless run) and on demand via /self-improvement. Undo with /self-improvement:revert. Run /self-improvement:setup after install."
 }

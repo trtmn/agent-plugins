@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.1] — 2026-06-15
+Post-release tuning and an orchestration fix.
+
+### Changed
+- `MAX_PROMOTIONS_PER_RUN` default raised from 3 to 10 — the investigator's conservative bar is the real gate; the cap is only a runaway backstop. Tunable in `~/.learnings/config`.
+
+### Fixed
+- Orchestrator no longer yields mid-pipeline. `learning-investigator` agents are now launched as concurrent **foreground** calls (never `run_in_background`), so the review collects every verdict and runs through promote/skip/log/notify/report in a single turn instead of dispatching background investigators and returning a "they're running…" status.
+
 ## [2.0.0] — 2026-06-15
 Merged the `learnings` plugin into `self-improvement` and made the review half autonomous.
 
@@ -20,10 +29,6 @@ Merged the `learnings` plugin into `self-improvement` and made the review half a
 - **BREAKING:** `self-improvement` is no longer interactive per-item approval. Both the autonomous and manual (`/self-improvement`) paths run the same non-interactive auto-promote pipeline; safety is the conservative bar + revertible trail rather than pre-approval.
 - **BREAKING:** the standalone `learnings` plugin is removed; install/update `self-improvement` and run `/self-improvement:setup`. The `learnings` agent/skill names are preserved for compatibility.
 - Model usage tuned for cost: capture on `haiku`, investigator on `sonnet`, headless review on `sonnet` (configurable).
-- `MAX_PROMOTIONS_PER_RUN` default raised from 3 to 10 — the investigator's conservative bar is the real gate; the cap is only a runaway backstop. Tunable in `~/.learnings/config`.
-
-### Fixed
-- Orchestrator no longer yields mid-pipeline. `learning-investigator` agents are now launched as concurrent **foreground** calls (never `run_in_background`), so the review collects every verdict and runs through promote/skip/log/notify/report in a single turn instead of dispatching background investigators and returning a "they're running…" status.
 
 ## [1.0.0] — 2026-06-09
 Initial versioned release.
