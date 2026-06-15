@@ -20,6 +20,7 @@ Merged the `learnings` plugin into `self-improvement` and made the review half a
 - **BREAKING:** `self-improvement` is no longer interactive per-item approval. Both the autonomous and manual (`/self-improvement`) paths run the same non-interactive auto-promote pipeline; safety is the conservative bar + revertible trail rather than pre-approval.
 - **BREAKING:** the standalone `learnings` plugin is removed; install/update `self-improvement` and run `/self-improvement:setup`. The `learnings` agent/skill names are preserved for compatibility.
 - Model usage tuned for cost: capture on `haiku`, investigator on `sonnet`, headless review on `sonnet` (configurable).
+- `MAX_PROMOTIONS_PER_RUN` default raised from 3 to 10 — the investigator's conservative bar is the real gate; the cap is only a runaway backstop. Tunable in `~/.learnings/config`.
 
 ## [1.0.0] — 2026-06-09
 Initial versioned release.
