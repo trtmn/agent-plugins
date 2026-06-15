@@ -69,15 +69,32 @@ fi
 # ── Spawn the detached, headless review. The CHILD holds the lock for its whole
 # run and releases it on exit. nohup + disown fully detaches it so it survives both
 # this hook process and the CLI quitting (macOS has no setsid; this is the portable
-# equivalent). Token travels via the exported env above, never on the command line.
+# equivalent).
 REVIEW_PROMPT="Run the self-improvement autonomous review now using the self-improvement skill. Sweep the ended-session transcript (path below, if any) for learnings that passive capture missed and write them as Status: pending entries. Then read every Status: pending entry in ~/.learnings/LEARNINGS.md, ERRORS.md, and FEATURE_REQUESTS.md, dispatch a learning-investigator subagent per candidate, and AUTO-PROMOTE only the qualifiers — user-level scope only — into ~/.claude/CLAUDE.md. Log every PROMO and SKIP to ~/.learnings/CHANGELOG.md and remove those entries from the pending files. Leave uncertain and project-scoped entries pending. Respect the per-run promotion cap. Finish by sending a Pushover summary. This is unattended: never wait for input."
 
+# Pass everything to the child via the ENVIRONMENT — never by concatenating into the
+# bash -c body — so a quote or $(...) in the transcript path can't escape into a shell.
+# The OP token (exported above) and these vars are inherited; the child references them
+# as plain "$VARS".
+export SI_PROMPT="$REVIEW_PROMPT (ended-session transcript: ${TRANSCRIPT:-none})"
+export SI_MODEL="$REVIEW_MODEL"
+export SI_LOG="$LOG"
+export SI_LOCK="$LOCK"
+export SI_LEARNINGS="$LEARNINGS_DIR"
+export SI_CLAUDE="$HOME/.claude"
+
+# Least privilege instead of --dangerously-skip-permissions: a fixed tool allow-list
+# (no WebFetch/MCP/network tools) plus filesystem access scoped to ~/.learnings and
+# ~/.claude via --add-dir. An unattended run can't answer prompts, so anything outside
+# this allow-list is auto-denied (it won't hang). Both "Task" and "Agent" are listed so
+# the subagent-dispatch tool is permitted regardless of its name in this build.
 nohup bash -c '
-  claude -p "'"$REVIEW_PROMPT"' (ended-session transcript: '"$TRANSCRIPT"')" \
-    --model "'"$REVIEW_MODEL"'" \
-    --dangerously-skip-permissions \
-    > "'"$LOG"'" 2>&1
-  rmdir "'"$LOCK"'" 2>/dev/null || true
+  claude -p "$SI_PROMPT" \
+    --model "$SI_MODEL" \
+    --add-dir "$SI_LEARNINGS" --add-dir "$SI_CLAUDE" \
+    --allowedTools "Read,Edit,Write,Grep,Glob,Bash,Task,Agent" \
+    > "$SI_LOG" 2>&1
+  rmdir "$SI_LOCK" 2>/dev/null || true
 ' < /dev/null > /dev/null 2>&1 &
 
 CHILD=$!
