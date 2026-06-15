@@ -1,16 +1,16 @@
-Run the self-improvement review workflow: sweep the current session for anything autonomous capture missed, review pending entries in `~/.learnings/`, and propose promotions to CLAUDE.md for my approval.
+Run the self-improvement review pipeline now, in the foreground, against this machine's pending learnings.
 
-First, check that `~/.claude/agents/learnings.md` exists. If it doesn't, stop and tell me: "⚠ The `learnings` agent isn't wired up. Run `/learnings:setup` first." Do not proceed without it.
+First, check that `~/.claude/agents/learnings.md` and `~/.claude/agents/learning-investigator.md` exist. If either is missing, stop and tell me: "⚠ The self-improvement agents aren't wired up. Run `/self-improvement:setup` first." Do not proceed without them.
 
-Delegate the whole workflow to the `self-improvement` subagent via the Agent tool (`subagent_type: self-improvement`, `run_in_background: true`). The subagent runs in its own context window so this review doesn't consume main-session tokens, and in the background so the main conversation stays responsive while the sweep + proposal generation happens. I'll get a completion notification with the proposals, and then we walk through decisions together in a follow-up turn.
+Then delegate to the `self-improvement` subagent via the Agent tool (`subagent_type: self-improvement`). Run it in the **foreground** so I can watch promotions happen live and interrupt if needed. Do NOT pass a transcript path (this is a mid-session manual run, not a session-end sweep) unless I explicitly ask you to sweep this conversation.
 
-The subagent will:
-1. Sweep the current conversation for anything that should have been logged but wasn't.
-2. Read pending entries from `~/.learnings/{LEARNINGS,ERRORS,FEATURE_REQUESTS}.md` (and the project-level `.learnings/` mirror, if any).
-3. Group and propose promotion candidates — target file, section, and exact text — for my decision.
-4. On each decision: write approved entries to the target CLAUDE.md, record the decision (promoted or skipped) in `~/.learnings/CHANGELOG.md` with full original entry for posterity, and remove from the pending file.
-5. Report back with a concise summary.
+The subagent runs the same non-interactive pipeline the autonomous session-end hook uses:
+1. (Optional, only if I ask) sweep this conversation for anything capture missed.
+2. Read pending entries from `~/.learnings/{LEARNINGS,ERRORS,FEATURE_REQUESTS}.md` — and, since this is a manual run inside a repo, the project-level `.learnings/` mirror too.
+3. Dispatch a `learning-investigator` per candidate to judge needed-ness (conservative bar: high confidence + a recurrence signal + not a duplicate).
+4. Auto-promote the qualifiers — append to the target CLAUDE.md, log a `[PROMO-<hex>]` to `~/.learnings/CHANGELOG.md`, remove from the pending file. Skip clear rejects with a `[SKIP-<hex>]`. Leave uncertain entries pending.
+5. Report a summary: swept / promoted / skipped / left-pending, with targets.
 
-Do NOT promote anything without my explicit approval. Do NOT batch-approve. Do NOT skip the session sweep.
+This run auto-promotes (no per-item approval prompt) — that's intentional and matches the autonomous behavior. Everything is logged; undo any promotion with `/self-improvement:revert <PROMO-hex>`.
 
 For raw autonomous capture (the passive side), use the separate `learnings` subagent — not this one.

@@ -40,6 +40,8 @@ If the classification is missing or wrong given the event, reclassify using the 
 
 When a single event has both a project-specific and a cross-project angle, write **both** entries with slightly different framing. Use the same hex ID prefix across them and reference each other in the `Source` field.
 
+> **Scope matters downstream.** The autonomous review only auto-promotes **user-level** entries (it runs unattended, where the working directory is arbitrary). Project-level entries are promoted only by a manual `/self-improvement` run inside that repo. So route deliberately: if a lesson is genuinely project-specific, write it to the project `.learnings/` — don't inflate the user-level pile.
+
 ## Entry ID
 
 `<PREFIX>-<6-char-hex>` where hex is generated fresh per entry:
@@ -108,8 +110,10 @@ Prefixes: `LRN`, `ERR`, `FEAT`.
 
 **Make it self-contained.** The reader will have zero context from the original conversation. Spell out what, why, and how to avoid/fix.
 
+**Set Priority honestly.** The autonomous review uses `Priority: high`/`critical` as a recurrence signal for auto-promotion. Reserve high/critical for things that genuinely recur or genuinely hurt; don't inflate.
+
 **One entry per event.** Don't bundle unrelated learnings.
 
 **Never block.** You exist to be fast. Write and exit.
 
-**Never promote.** Promotion is the `/self-improvement` workflow's job — always with human approval.
+**Never promote.** You only capture. Reviewing pending entries and promoting them into CLAUDE.md is the `self-improvement` pipeline's job (autonomous on session-end, or manual via `/self-improvement`).

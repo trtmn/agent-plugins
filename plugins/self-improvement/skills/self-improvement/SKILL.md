@@ -1,156 +1,128 @@
 ---
 name: self-improvement
-description: User-triggered review and promotion of accumulated learnings. Reads pending entries from ~/.learnings/, proposes promotion candidates to CLAUDE.md, and lets the user approve each one. Use this skill when the user explicitly asks to review learnings, promote entries, do an end-of-session retrospective, or analyze GitHub PRs/issues for recurring patterns. Also use on phrases like "promote", "review learnings", "what have we learned", or "self-improvement". Do NOT use this skill for logging — that is the separate `learnings` skill (autonomous, background capture).
+description: Review and AUTO-PROMOTE accumulated learnings into CLAUDE.md. Sweeps a session for missed learnings, investigates each pending entry in ~/.learnings/ for "needed-ness", and promotes the qualifiers into CLAUDE.md with a conservative bar and a full revertible audit trail in CHANGELOG.md. Runs autonomously when a session ends (gated SessionEnd hook) and on demand via /self-improvement. Use this skill when the user asks to review learnings, promote entries, do a retrospective, or run the self-improvement pipeline. For raw background capture, see the separate `learnings` skill.
 allowed-tools: Agent, Read, Write, Edit, Grep, Glob, Bash
 ---
 
 # Self-Improvement
 
-User-triggered review and promotion workflow. Capture is handled separately by the `learnings` skill and its subagent, which write entries to `~/.learnings/` continuously and autonomously. This skill is the *deliberate* half: the user runs it, the subagent proposes promotions, the user decides, and decided entries move to `CHANGELOG.md` so the active log stays clean.
+The **review + auto-promote** half of the learning loop. Capture is handled separately by the `learnings` skill, which writes pending entries to `~/.learnings/` continuously. This skill is the deliberate-but-autonomous half: it investigates each pending entry, promotes the ones that clear a conservative bar into `CLAUDE.md`, and records every decision in `CHANGELOG.md` so the active log stays clean and every promotion is reversible.
+
+It closes the loop so Claude gets better as you keep using it — no manual step required.
+
+## How it runs
+
+**One pipeline, one behavior, two triggers.** The pipeline never branches on who called it — it always runs non-interactively and auto-promotes. That single invocation model is what makes it safe to run headless (an approval prompt in an unattended process would deadlock).
+
+| Trigger | How |
+|---|---|
+| **Autonomous** (primary) | A gated `SessionEnd` hook (`~/.claude/self-improvement/review-trigger.sh`) checks the user-level pending count; if it's ≥ `REVIEW_THRESHOLD` and the cooldown has elapsed and no review holds the lock, it spawns a **detached, headless `claude -p`** review that runs the pipeline in its own process — zero cost to your live session. |
+| **Manual** | `/self-improvement` runs the *same* pipeline in the foreground so you can watch promotions happen and intervene. |
+
+Undo any promotion with `/self-improvement:revert <PROMO-hex>`.
 
 ## Relationship to `learnings`
 
 | | `learnings` | `self-improvement` |
 |---|---|---|
-| **Who invokes** | Main Claude, autonomously | User, via `/self-improvement` |
-| **When** | Continuously, as things happen | On demand |
-| **Does** | Appends entries to `~/.learnings/` | Reviews entries, proposes promotions, archives to CHANGELOG.md |
-| **Human in loop?** | No — pure capture | Yes — user decides every promotion |
+| **Who invokes** | Main Claude, autonomously, on every trigger | SessionEnd hook (headless) or the user (`/self-improvement`) |
+| **When** | Continuously | After a session ends (if enough piled up), or on demand |
+| **Does** | Appends pending entries to `~/.learnings/` | Investigates, auto-promotes qualifiers, logs to CHANGELOG |
+| **Behavior** | Pure capture | Non-interactive auto-promote + revertible trail |
 
-Never auto-promote. Capture is free; promotion is deliberate.
+## The pipeline (run by the `self-improvement` agent)
+
+1. **Sweep** (if given a session transcript path) for learnings passive capture missed; write them as `Status: pending` using the `learnings` entry formats.
+2. **Read** all `Status: pending` entries from `~/.learnings/{LEARNINGS,ERRORS,FEATURE_REQUESTS}.md`. (Manual runs also read the project `.learnings/` mirror; autonomous runs do not — see Scope.)
+3. **Investigate** each candidate with a `learning-investigator` subagent (one per entry, concurrent), which returns a structured verdict.
+4. **Act**: auto-promote verdicts that clear the bar (append to target `CLAUDE.md`, `[PROMO-<hex>]` to CHANGELOG, remove from pending); `[SKIP-<hex>]` clear rejects; leave uncertain/project-scoped entries pending. Enforce `MAX_PROMOTIONS_PER_RUN`.
+5. **Notify** via a single Pushover summary.
+6. **Report** the same summary to stdout (lands in `.review.log` for headless runs).
+
+## The promotion bar (investigator)
+
+Auto-promote only when **all** hold: broadly applicable, **not** a duplicate of existing `CLAUDE.md` content, **high** confidence, **and** a second recurrence signal (`Priority: high|critical` or the pattern appears in ≥2 pending entries). Self-assessed confidence alone is too gameable — the independent signal is required. Anything short of the bar stays **pending** (not skipped). A per-run cap prevents a backlog from flooding `CLAUDE.md` in one pass.
+
+## Scope (autonomous vs manual)
+
+- **Autonomous runs promote to user-level `~/.claude/CLAUDE.md` only.** The session-end working directory is arbitrary, so promoting to a project `CLAUDE.md` would risk the wrong repo. Project-scoped entries are left pending and named in the Pushover summary.
+- **Manual `/self-improvement` runs** (you're present, cwd is intentional) may also promote to the project `CLAUDE.md`.
 
 ## File Layout
 
 ```
 ~/.learnings/
-├── LEARNINGS.md          # pending — written by learnings agent, read here
-├── ERRORS.md             # pending — written by learnings agent, read here
-├── FEATURE_REQUESTS.md   # pending — written by learnings agent, read here
-└── CHANGELOG.md          # append-only; every reviewed entry lands here with a disposition
+├── LEARNINGS.md / ERRORS.md / FEATURE_REQUESTS.md   # pending, written by learnings agent
+├── CHANGELOG.md       # append-only: every PROMO / SKIP / REVERT lands here with full original entry
+├── config             # optional tunables (REVIEW_THRESHOLD, COOLDOWN_HOURS, MAX_PROMOTIONS_PER_RUN, ...)
+├── .last-review .review.lock .review.log            # review bookkeeping
 ```
 
-There is no separate ARCHIVE file. `CHANGELOG.md` is the single sink: promoted entries, skipped entries, and reversions all live there with a `Disposition` field.
-
-## Dependency Check
-
-Before delegating to the subagent, verify `~/.claude/agents/learnings.md` exists. If it doesn't:
-
-> "⚠ The `learnings` agent isn't wired up — passive capture won't fire. Run `/learnings:setup` to fix it, then re-run `/self-improvement`."
-
-Do not proceed without learnings wired up — the session sweep and ongoing auto-logging both depend on it.
-
-## Workflow
-
-Delegate the entire review to the `self-improvement` subagent via the Agent tool (`subagent_type: self-improvement`, `run_in_background: true`). It runs in its own context window so the review can scan all pending entries without consuming the main session's tokens, and in the background so the main conversation stays responsive during the sweep. The main agent gets a completion notification with the proposals, then walks through decisions with the user in a follow-up turn.
-
-The subagent must:
-
-1. **Session sweep.** Re-read the current conversation for any corrections, errors, suggestions, or feature gaps that the `learnings` agent may have missed. For each uncaptured event, fire a `learnings` subagent (`subagent_type: learnings`, `model: haiku`, `run_in_background: true`) immediately — don't batch, capture the moment you see it. Also fire background learnings agents for any new insights discovered while reading pending entries, analyzing GitHub PRs, or walking through promotions. Autonomous capture is best-effort; this step is the safety net.
-2. **Read pending entries** from `~/.learnings/LEARNINGS.md`, `ERRORS.md`, `FEATURE_REQUESTS.md` (anything with `Status: pending`).
-3. **Group and summarize** candidates worth promoting, organized by theme.
-4. **Propose** for each candidate: target CLAUDE.md (user vs. project), section, proposed text, one-line rationale.
-5. **Wait for the user** to approve, reject, or modify each one. Do not batch-promote.
-6. **Act on each decision:**
-   - Approved → write to the target CLAUDE.md, append a `[PROMO-<hex>]` entry to `CHANGELOG.md`, remove the source entry from its pending file.
-   - Skipped → append a `[SKIP-<hex>]` entry to `CHANGELOG.md` with the reason, remove the source entry from its pending file.
-7. **Report back** with a concise summary: sweep findings, promotions, skips, counts.
-
-Keep the main session informed only at the summary level — the subagent handles the per-entry dance internally.
-
-## Promotion Criteria
-
-Propose promotion when an entry is:
-
-1. **Broadly applicable** — applies beyond one conversation or file.
-2. **Likely to recur** — future Claude would plausibly hit the same thing.
-3. **Not already documented** — check the target CLAUDE.md first; never duplicate.
-
-Do not propose:
-
-- One-off workarounds for temporary situations.
-- Fixes that are self-documented by the code change itself.
-- Anything already covered verbatim in the target CLAUDE.md.
-
-## Where to Promote
-
-- **Project CLAUDE.md** (project root) — project-specific conventions, pitfalls, patterns.
-- **User CLAUDE.md** (`~/.claude/CLAUDE.md`) — cross-project knowledge that applies regardless of project.
-
-Rule of thumb: "Would this matter in a completely different project?" — Yes → user. No → project. Sometimes both → promote to both with slightly different framing.
+There is no separate archive file. `CHANGELOG.md` is the single sink and the basis for revert. It is **not** loaded into normal context — only read on explicit request or by `revert.sh`.
 
 ## CHANGELOG Entry Formats
 
-### Promoted entry
-```markdown
-## [PROMO-<hex>] Short title matching the source
+### Promoted
+````markdown
+## [PROMO-<hex>] Short title
 - **Timestamp**: ISO-8601
 - **Source**: LRN-<hex> | ERR-<hex> | FEAT-<hex>
 - **Disposition**: promoted
-- **Target**: project CLAUDE.md | user CLAUDE.md (note both if promoted to both)
-- **Section**: Which section of the target file
-- **What was promoted**: Exact text or a close summary
-- **Why**: One sentence on why this deserved promotion
-- **Original entry**: (Full body of the source entry, for posterity)
+- **Mode**: autonomous | manual
+- **Target**: ~/.claude/CLAUDE.md (or project CLAUDE.md, manual only)
+- **Section**: Section of target file
+- **Why**: One-sentence rationale
+- **Promoted text**:
+```text
+<the exact text appended to the target — verbatim (fence at left margin), so revert can find it>
 ```
+- **Original entry**: (Full body of source, for posterity)
+````
 
-### Skipped entry
+### Skipped
 ```markdown
-## [SKIP-<hex>] Short title matching the source
+## [SKIP-<hex>] Short title
 - **Timestamp**: ISO-8601
-- **Source**: LRN-<hex> | ERR-<hex> | FEAT-<hex>
+- **Source**: LRN/ERR/FEAT-<hex>
 - **Disposition**: skipped
 - **Reason**: Why it didn't warrant promotion
-- **Original entry**: (Full body of the source entry, for posterity)
+- **Original entry**: (Full body of source)
 ```
 
-### Reversion (rare)
-If a promotion turns out to be wrong, add a new entry — never edit or delete existing ones.
-
+### Reverted (written by `/self-improvement:revert`)
 ```markdown
 ## [REVERT-<hex>] Short title
 - **Timestamp**: ISO-8601
 - **Source**: PROMO-<hex>
 - **Disposition**: reverted
-- **Reason**: Why the promoted guidance was wrong or outdated
+- **Reason**: Why the guidance was wrong/outdated
 - **Removed from**: Target CLAUDE.md / section
 ```
 
-The changelog is append-only. It is **not** loaded into regular context — only read when the user explicitly asks ("show me what we skipped", "what was promoted last week", "search the changelog for X").
+## Tunables (`~/.learnings/config`)
 
-## Learning from GitHub PRs and Issues
-
-When the user asks to learn from GitHub history:
-
-```bash
-gh pr list --state closed --limit 50 --json number,title,reviews,comments
-gh pr view <number> --json reviews,comments,body
 ```
-
-Extract:
-- Recurring reviewer complaints → LEARNINGS.md
-- Rejected approaches (and why) → LEARNINGS.md as anti-patterns
-- Common bug patterns from issues → ERRORS.md
-- Frequently requested features → FEATURE_REQUESTS.md
-
-Focus on patterns appearing across multiple PRs/issues — not one-offs. Always cite the source PR/issue number in the entry.
+REVIEW_THRESHOLD=5         # min user-level pending entries before an autonomous review fires
+COOLDOWN_HOURS=6           # min hours between autonomous reviews
+REVIEW_MODEL=sonnet        # model for the headless review (smaller = cheaper)
+MAX_PROMOTIONS_PER_RUN=3   # cap promotions per run (rest stay pending)
+STALE_LOCK_MIN=120         # reclaim a review lock older than this (crashed run)
+```
 
 ## Principles
 
-**Human-in-the-loop for every promotion.** Auto-promotion causes CLAUDE.md bloat and unwanted rules. The user decides, every time.
+**Conservative bar, revertible trail.** Auto-promotion is safe only because the bar is high and every change is logged and reversible. Keep both honest.
 
-**Keep active files small.** Once reviewed, entries leave LEARNINGS/ERRORS/FEATURE_REQUESTS and live only in CHANGELOG. Scanning for pending work stays fast.
+**Be specific.** Promote concrete rules with the *why*, never vague platitudes.
 
-**Be specific when promoting.** "Don't use deprecated APIs" is useless. "Don't use `os.path.join` in this codebase — it uses `pathlib.Path` everywhere (see utils.py)" is useful.
+**Keep active files clean.** Reviewed entries leave the pending files; only CHANGELOG remembers.
 
-**Document the why.** A promoted rule without the reason behind it becomes cargo-culted. Include the motivating incident.
+**Don't over-promote.** When unsure, the entry stays pending. The per-run cap is a backstop.
 
 ## Installation
 
-Link the subagent and slash command into your Claude Code user config:
-
-```bash
-ln -sf "$(pwd)/agents/self-improvement.md" ~/.claude/agents/self-improvement.md
-ln -sf "$(pwd)/commands/self-improvement.md" ~/.claude/commands/self-improvement.md
+```
+/self-improvement:setup
 ```
 
-See the `learnings` skill for the companion autonomous-capture setup.
+Wires the agents, the `/self-improvement` command, the deployed scripts, the SessionEnd hook, and the CLAUDE.md delegation block. Idempotent. See the script's printed prerequisite about `OP_SERVICE_ACCOUNT_TOKEN` for Pushover.
