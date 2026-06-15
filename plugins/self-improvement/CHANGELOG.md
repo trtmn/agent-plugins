@@ -12,6 +12,10 @@ Merged the `learnings` plugin into `self-improvement` and made the review half a
 - **Tunables** via `~/.learnings/config` (`REVIEW_THRESHOLD`, `COOLDOWN_HOURS`, `REVIEW_MODEL`, `MAX_PROMOTIONS_PER_RUN`, `STALE_LOCK_MIN`).
 - **Concurrency lock** (atomic `mkdir`, stale-reclaim) so overlapping session-ends can't run dual reviews.
 
+### Security
+- The headless review runs **least-privilege**, not `--dangerously-skip-permissions`: a fixed tool allow-list (`Read,Edit,Write,Grep,Glob,Bash,Task,Agent` — no network/MCP tools) with filesystem access scoped to `~/.learnings` and `~/.claude` via `--add-dir`. Anything outside is auto-denied.
+- The detached spawn passes all values to the child via environment variables, never by string-concatenation into the `bash -c` body — a quote or `$(...)` in the transcript path cannot escape into a shell.
+
 ### Changed
 - **BREAKING:** `self-improvement` is no longer interactive per-item approval. Both the autonomous and manual (`/self-improvement`) paths run the same non-interactive auto-promote pipeline; safety is the conservative bar + revertible trail rather than pre-approval.
 - **BREAKING:** the standalone `learnings` plugin is removed; install/update `self-improvement` and run `/self-improvement:setup`. The `learnings` agent/skill names are preserved for compatibility.
