@@ -34,7 +34,7 @@ Undo any promotion with `/self-improvement:revert <PROMO-hex>`.
 
 1. **Sweep** (if given a session transcript path) for learnings passive capture missed; write them as `Status: pending` using the `learnings` entry formats.
 2. **Read** all `Status: pending` entries from `~/.learnings/{LEARNINGS,ERRORS,FEATURE_REQUESTS}.md`. (Manual runs also read the project `.learnings/` mirror; autonomous runs do not — see Scope.)
-3. **Investigate** each candidate with a `learning-investigator` subagent (one per entry, concurrent), which returns a structured verdict.
+3. **Investigate** each candidate with a `learning-investigator` subagent — one per entry, dispatched as concurrent **foreground** calls (parallel but blocking; never `run_in_background`, which would let the orchestrator yield before verdicts return). Collect every verdict before acting.
 4. **Act**: auto-promote verdicts that clear the bar (append to target `CLAUDE.md`, `[PROMO-<hex>]` to CHANGELOG, remove from pending); `[SKIP-<hex>]` clear rejects; leave uncertain/project-scoped entries pending. Enforce `MAX_PROMOTIONS_PER_RUN`.
 5. **Notify** via a single Pushover summary.
 6. **Report** the same summary to stdout (lands in `.review.log` for headless runs).

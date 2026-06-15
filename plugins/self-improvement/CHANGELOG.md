@@ -22,5 +22,8 @@ Merged the `learnings` plugin into `self-improvement` and made the review half a
 - Model usage tuned for cost: capture on `haiku`, investigator on `sonnet`, headless review on `sonnet` (configurable).
 - `MAX_PROMOTIONS_PER_RUN` default raised from 3 to 10 — the investigator's conservative bar is the real gate; the cap is only a runaway backstop. Tunable in `~/.learnings/config`.
 
+### Fixed
+- Orchestrator no longer yields mid-pipeline. `learning-investigator` agents are now launched as concurrent **foreground** calls (never `run_in_background`), so the review collects every verdict and runs through promote/skip/log/notify/report in a single turn instead of dispatching background investigators and returning a "they're running…" status.
+
 ## [1.0.0] — 2026-06-09
 Initial versioned release.
