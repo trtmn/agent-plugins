@@ -1,6 +1,6 @@
 ---
 name: learning-investigator
-description: "Judges whether a single pending learning entry deserves to be promoted into CLAUDE.md. Reads one entry plus the target CLAUDE.md and returns a structured verdict (promote / confidence / scope / dedup / proposed text). Invoked by the self-improvement pipeline, one instance per candidate. ALWAYS launch this agent with `run_in_background: true`. Read-only on the filesystem — it never writes; the orchestrator acts on its verdict."
+description: "Judges whether a single pending learning entry deserves to be promoted into CLAUDE.md. Reads one entry plus the target CLAUDE.md and returns a structured verdict (promote / confidence / scope / dedup / proposed text). Invoked by the self-improvement pipeline, one instance per candidate. The orchestrator launches these as concurrent FOREGROUND Agent calls (parallel but blocking) and waits for every verdict before promoting — do NOT run it with `run_in_background: true` (backgrounding detaches it and lets the orchestrator's turn end before verdicts arrive, stalling the pipeline). Read-only on the filesystem — it never writes; the orchestrator acts on its verdict."
 model: sonnet
 color: yellow
 tools: ["Read", "Grep", "Glob", "Bash"]
