@@ -66,10 +66,12 @@ Plus, if a project is active, a project-level `.learnings/` mirror in the projec
 
 All IDs are `<PREFIX>-<6-char-hex>`. Hex is random, generated at log time (`openssl rand -hex 3` or `python3 -c "import secrets; print(secrets.token_hex(3))"`).
 
+The `Timestamp` field must be the real wall-clock time from the shell — `date +%Y-%m-%dT%H:%M:%S%z` — never a guessed or date-only `…T00:00:00Z` value.
+
 ### LEARNINGS.md
 ```markdown
 ## [LRN-a3f7c1] Short descriptive title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Priority**: low | medium | high | critical
 - **Status**: pending
 - **Area**: frontend | backend | infra | tests | docs | config | workflow | other
@@ -82,7 +84,7 @@ All IDs are `<PREFIX>-<6-char-hex>`. Hex is random, generated at log time (`open
 ### ERRORS.md
 ```markdown
 ## [ERR-b2e9d4] Short descriptive title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Priority**: low | medium | high | critical
 - **Status**: pending
 - **Area**: (same categories)
@@ -96,7 +98,7 @@ All IDs are `<PREFIX>-<6-char-hex>`. Hex is random, generated at log time (`open
 ### FEATURE_REQUESTS.md
 ```markdown
 ## [FEAT-c8d2a5] Short descriptive title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Priority**: low | medium | high | critical
 - **Status**: pending
 - **Area**: (same categories)

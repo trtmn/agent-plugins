@@ -65,7 +65,7 @@ There is no separate archive file. `CHANGELOG.md` is the single sink and the bas
 ### Promoted
 ````markdown
 ## [PROMO-<hex>] Short title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Source**: LRN-<hex> | ERR-<hex> | FEAT-<hex>
 - **Disposition**: promoted
 - **Mode**: autonomous | manual
@@ -82,7 +82,7 @@ There is no separate archive file. `CHANGELOG.md` is the single sink and the bas
 ### Skipped
 ```markdown
 ## [SKIP-<hex>] Short title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Source**: LRN/ERR/FEAT-<hex>
 - **Disposition**: skipped
 - **Reason**: Why it didn't warrant promotion
@@ -92,7 +92,7 @@ There is no separate archive file. `CHANGELOG.md` is the single sink and the bas
 ### Reverted (written by `/self-improvement:revert`)
 ```markdown
 ## [REVERT-<hex>] Short title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Source**: PROMO-<hex>
 - **Disposition**: reverted
 - **Reason**: Why the guidance was wrong/outdated
