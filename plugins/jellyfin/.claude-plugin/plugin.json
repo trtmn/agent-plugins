@@ -1,0 +1,5 @@
+{
+  "name": "jellyfin",
+  "version": "1.0.0",
+  "description": "Interact with a Jellyfin media server via its REST API using the `jellyfin` CLI (a curl wrapper with 1Password auth). Use this skill whenever the user wants to browse or search their Jellyfin library, trigger a library scan/refresh, inspect active playback sessions or remote-control playback, list users, or check server/system status. Trigger on phrases like \"scan my Jellyfin library\", \"what's playing on Jellyfin\", \"search Jellyfin for X\", \"refresh Jellyfin\", \"list Jellyfin users\", \"Jellyfin server info\", or any mention of Jellyfin."
+}

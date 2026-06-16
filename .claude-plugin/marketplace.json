@@ -34,6 +34,11 @@
       "description": "Terminal-based iMessage and SMS management via the command line. Use this skill whenever the user mentions texting, messaging, iMessage, SMS, conversations, chat history, message backups, or any interaction with their Messages database. Trigger for requests to send/receive messages, view conversation history, list chats, watch for incoming texts, export or backup messages, or manage iMessage/SMS data—even if the user doesn't explicitly say \"iMessage\" or \"SMS\". This is the right skill for anything involving text messages, group chats, or the Messages app accessed from the terminal."
     },
     {
+      "name": "jellyfin",
+      "source": "./plugins/jellyfin",
+      "description": "Interact with a Jellyfin media server via its REST API using the `jellyfin` CLI (a curl wrapper with 1Password auth). Use this skill whenever the user wants to browse or search their Jellyfin library, trigger a library scan/refresh, inspect active playback sessions or remote-control playback, list users, or check server/system status. Trigger on phrases like \"scan my Jellyfin library\", \"what's playing on Jellyfin\", \"search Jellyfin for X\", \"refresh Jellyfin\", \"list Jellyfin users\", \"Jellyfin server info\", or any mention of Jellyfin."
+    },
+    {
       "name": "mastodon-cli",
       "source": "./plugins/mastodon-cli",
       "description": "Interact with Mastodon using the `toot` CLI — post statuses, read timelines, check notifications, search, follow/unfollow, boost, favourite, and manage your account. Use this skill whenever the user mentions Mastodon, tooting, fediverse, their timeline, mentions, boosts, favourites, followers, or anything related to social media posting on Mastodon. Also trigger when the user asks to check what's happening on social media, wants to share something publicly, asks about trending topics, or says things like 'post this', 'toot this', 'check my mentions', 'what's on my timeline', 'who followed me', or 'boost that'. Even casual references like 'share this on masto' or 'what's trending' should trigger this skill."
