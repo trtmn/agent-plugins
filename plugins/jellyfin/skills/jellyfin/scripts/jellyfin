@@ -1,0 +1,103 @@
+#!/bin/bash
+# Jellyfin CLI — a thin curl wrapper with 1Password credential injection.
+#
+# The API key and server URL are pulled from a single 1Password item via
+# `op run`, so neither the secret nor the (private) hostname is ever committed,
+# echoed to stdout, or placed on argv. The key is sent as Jellyfin's
+# `X-Emby-Token` header.
+#
+# Shorthands (most common operations):
+#   jellyfin scan                  # trigger a full library scan/refresh
+#   jellyfin libraries             # list libraries (virtual folders)
+#   jellyfin search "the matrix"   # search hints across the library
+#   jellyfin search "dune" 5       # ...limited to 5 results
+#   jellyfin sessions              # list active playback sessions
+#   jellyfin users                 # list users
+#   jellyfin system-info           # server system info
+#   jellyfin tasks                 # list scheduled tasks
+#
+# Raw HTTP — reach any Jellyfin endpoint (see https://api.jellyfin.org/):
+#   jellyfin get  "/Items?searchTerm=blade+runner&limit=5"
+#   jellyfin get  "/Items/<itemId>"
+#   jellyfin post "/Sessions/<sessionId>/Playing/Pause"
+#   jellyfin post "/Sessions/<sessionId>/Message" '{"Text":"hi","Header":"Note"}'
+#   jellyfin delete "/Items/<itemId>"
+#
+# A request body for post/put may be given as the 3rd argument or piped on stdin.
+# JSON responses are pretty-printed when `jq` is available.
+
+set -euo pipefail
+
+usage() {
+  sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+  exit "${1:-0}"
+}
+
+# --- Translate the invocation into METHOD + PATH + BODY --------------------
+method="GET"; path=""; body=""
+
+case "${1:-}" in
+  ""|-h|--help|help)
+    usage 0 ;;
+  scan)         method="POST"; path="/Library/Refresh" ;;
+  libraries)    path="/Library/VirtualFolders" ;;
+  sessions)     path="/Sessions" ;;
+  users)        path="/Users" ;;
+  system-info)  path="/System/Info" ;;
+  tasks)        path="/ScheduledTasks" ;;
+  search)
+    term="${2:-}"; limit="${3:-25}"
+    [[ -z "$term" ]] && { echo 'Usage: jellyfin search "<term>" [limit]' >&2; exit 1; }
+    # URL-encode the search term for the query string.
+    enc=$(printf '%s' "$term" | jq -sRr @uri)
+    path="/Search/Hints?searchTerm=${enc}&limit=${limit}" ;;
+  get|GET)      method="GET";    path="${2:-}" ;;
+  post|POST)    method="POST";   path="${2:-}"; body="${3:-}" ;;
+  put|PUT)      method="PUT";    path="${2:-}"; body="${3:-}" ;;
+  delete|DELETE) method="DELETE"; path="${2:-}" ;;
+  *)
+    echo "Unknown command: $1" >&2
+    echo "Run 'jellyfin --help' for usage." >&2
+    exit 1 ;;
+esac
+
+[[ -z "$path" ]] && { echo "Error: missing endpoint path." >&2; exit 1; }
+
+# A body piped on stdin overrides/serves the 3rd-arg body for post/put.
+if [[ ( "$method" == "POST" || "$method" == "PUT" ) && -z "$body" && ! -t 0 ]]; then
+  body="$(cat)"
+fi
+
+# --- Inject credentials + server URL, then call curl -----------------------
+# JELLYFIN_API_KEY and JELLYFIN_URL are resolved from a single 1Password item.
+# Replace the placeholders below with your item path when installing.
+op run --env-file=<(cat <<'EOF'
+JELLYFIN_API_KEY=op://<vault>/<jellyfin-item>/credential
+JELLYFIN_URL=op://<vault>/<jellyfin-item>/hostname
+EOF
+) -- bash -c '
+  set -euo pipefail
+  method="$1"; path="$2"; body="$3"
+
+  base="${JELLYFIN_URL:-}"
+  [[ -z "$base" ]] && { echo "Error: server URL not set (item hostname field empty, and JELLYFIN_URL unset)." >&2; exit 1; }
+  [[ "$base" != http*://* ]] && base="https://$base"   # default to https if no scheme
+  base="${base%/}"
+  [[ "$path" != /* ]] && path="/$path"
+
+  args=(-sS --fail-with-body -X "$method"
+        -H "X-Emby-Token: $JELLYFIN_API_KEY"
+        -H "Accept: application/json")
+  if [[ -n "$body" ]]; then
+    args+=(-H "Content-Type: application/json" --data-binary "$body")
+  fi
+
+  resp="$(curl "${args[@]}" "${base}${path}")" || { code=$?; echo "$resp" >&2; exit $code; }
+
+  # Pretty-print JSON when possible; otherwise emit raw (empty for 204).
+  if [[ -n "$resp" ]] && command -v jq >/dev/null 2>&1; then
+    printf "%s" "$resp" | jq . 2>/dev/null || printf "%s\n" "$resp"
+  else
+    [[ -n "$resp" ]] && printf "%s\n" "$resp"
+  fi
+' _ "$method" "$path" "$body"
