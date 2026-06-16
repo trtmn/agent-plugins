@@ -73,10 +73,12 @@ Print the same summary to stdout (this is what lands in `.review.log` for headle
 
 ## CHANGELOG Entry Formats
 
+**Timestamps must be real.** Before writing any CHANGELOG entry, get the wall-clock time from the shell — `date +%Y-%m-%dT%H:%M:%S%z` — and paste that exact string into the `Timestamp` field. Never hand-write or infer the time; a `00:00:00` or date-only value is the tell-tale sign of a fabricated timestamp.
+
 ### Promoted
 ```markdown
 ## [PROMO-<hex>] Short title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Source**: LRN-<hex> | ERR-<hex> | FEAT-<hex>
 - **Disposition**: promoted
 - **Mode**: autonomous | manual
@@ -95,7 +97,7 @@ The fenced `Promoted text` block must be byte-for-byte what you wrote into the t
 ### Skipped
 ```markdown
 ## [SKIP-<hex>] Short title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Source**: LRN-<hex> | ERR-<hex> | FEAT-<hex>
 - **Disposition**: skipped
 - **Reason**: Why not worth promoting
@@ -105,7 +107,7 @@ The fenced `Promoted text` block must be byte-for-byte what you wrote into the t
 ### Reverted (written by `/self-improvement:revert`, never edit prior entries)
 ```markdown
 ## [REVERT-<hex>] Short title
-- **Timestamp**: ISO-8601
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never guessed or 00:00:00>
 - **Source**: PROMO-<hex>
 - **Disposition**: reverted
 - **Reason**: Why the promoted guidance was wrong or outdated

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.2] — 2026-06-16
+Fixed fabricated timestamps in captured learnings and the promotion CHANGELOG.
+
+### Fixed
+- **Timestamps are now real.** The `learnings` capture agent and the `self-improvement` review pipeline previously emitted `<ISO-8601>` / `ISO-8601` placeholders in their entry templates with no instruction to compute the actual time, so the Haiku capture agent fabricated values — typically date-only `…T00:00:00Z` guesses. Both agents (and the `self-improvement` skill) now mandate obtaining the wall-clock time from the shell via `date +%Y-%m-%dT%H:%M:%S%z` and pasting it verbatim, with an explicit "never guess / `00:00:00` is the tell-tale of a fake timestamp" warning. The capture agent generates the timestamp in the same Bash call as the hex ID.
+
 ## [2.0.1] — 2026-06-15
 Post-release tuning and an orchestration fix.
 

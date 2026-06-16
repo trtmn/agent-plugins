@@ -54,12 +54,23 @@ python3 -c "import secrets; print(secrets.token_hex(3))"
 
 Prefixes: `LRN`, `ERR`, `FEAT`.
 
+## Timestamp — NEVER fabricate it
+
+The `Timestamp` field MUST be the real wall-clock time, obtained from the shell. **Do not guess, infer from context, or write a date-only value like `2026-06-15T00:00:00Z`** — you do not actually know the current time, and a midnight/`00:00:00` time is the tell-tale sign of a made-up timestamp. Always run:
+
+```bash
+date +%Y-%m-%dT%H:%M:%S%z
+# -> e.g. 2026-06-16T14:32:07-0500
+```
+
+Copy that exact string into the `Timestamp` field. Generate it in the same Bash call as the hex ID so it costs nothing extra.
+
 ## Entry Formats
 
 ### LEARNINGS.md
 ```markdown
 ## [LRN-<hex>] Short descriptive title
-- **Timestamp**: <ISO-8601>
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never a guessed or 00:00:00 value>
 - **Priority**: low | medium | high | critical
 - **Status**: pending
 - **Area**: frontend | backend | infra | tests | docs | config | workflow | other
@@ -72,7 +83,7 @@ Prefixes: `LRN`, `ERR`, `FEAT`.
 ### ERRORS.md
 ```markdown
 ## [ERR-<hex>] Short descriptive title
-- **Timestamp**: <ISO-8601>
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never a guessed or 00:00:00 value>
 - **Priority**: low | medium | high | critical
 - **Status**: pending
 - **Area**: (same categories)
@@ -86,7 +97,7 @@ Prefixes: `LRN`, `ERR`, `FEAT`.
 ### FEATURE_REQUESTS.md
 ```markdown
 ## [FEAT-<hex>] Short descriptive title
-- **Timestamp**: <ISO-8601>
+- **Timestamp**: <real `date +%Y-%m-%dT%H:%M:%S%z` output — never a guessed or 00:00:00 value>
 - **Priority**: low | medium | high | critical
 - **Status**: pending
 - **Area**: (same categories)
@@ -99,7 +110,7 @@ Prefixes: `LRN`, `ERR`, `FEAT`.
 
 1. Ensure `~/.learnings/` exists (`mkdir -p`). Create target file with a `# <NAME>` header if missing.
 2. Decide routing (user / project / both) per the dual-write rules.
-3. Generate a fresh hex ID.
+3. Generate a fresh hex ID **and** capture the real timestamp in one Bash call, e.g. `echo "$(openssl rand -hex 3) $(date +%Y-%m-%dT%H:%M:%S%z)"`. Never hand-write the timestamp.
 4. Compose the entry — self-contained, specific, captures the *why*.
 5. Append to the target file(s).
 6. Return a one-line summary to the caller: `Logged <ID> to <path>`.
