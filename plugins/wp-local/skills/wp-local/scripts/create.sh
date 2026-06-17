@@ -35,25 +35,19 @@ find_free_port() {
 PORT=$(find_free_port)
 echo "Using port $PORT" >&2
 
-# --- Generate passwords ---
+# --- Generate DB passwords ---
 DB_ROOT_PASS=$(openssl rand -base64 16 | tr -d '=/+')
 DB_PASS=$(openssl rand -base64 16 | tr -d '=/+')
-ADMIN_PASS=$(openssl rand -base64 16 | tr -d '=/+')
-ADMIN_USER="admin"
-ADMIN_EMAIL="admin@example.local"
 
 # --- Create site directory ---
 mkdir -p "$SITE_DIR"
 
-# --- Write .env (chmod 600 — contains all secrets) ---
+# --- Write .env (chmod 600 — contains DB secrets) ---
 cat > "$SITE_DIR/.env" <<EOF
 SITE_NAME=$NAME
 WP_PORT=$PORT
 DB_ROOT_PASSWORD=$DB_ROOT_PASS
 DB_PASSWORD=$DB_PASS
-WP_ADMIN_USER=$ADMIN_USER
-WP_ADMIN_PASS=$ADMIN_PASS
-WP_ADMIN_EMAIL=$ADMIN_EMAIL
 EOF
 chmod 600 "$SITE_DIR/.env"
 
@@ -133,25 +127,12 @@ while true; do
     ELAPSED=$((ELAPSED + 5))
 done
 
-# --- Install WP-CLI into the WordPress container ---
+# --- Install WP-CLI into the WordPress container (available for later use) ---
 echo "Installing WP-CLI..." >&2
 docker exec "$CONTAINER" bash -c \
     "curl -sL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o /usr/local/bin/wp \
      && chmod +x /usr/local/bin/wp" >&2
 
-# --- Run wp core install via WP-CLI ---
-echo "Configuring WordPress via WP-CLI..." >&2
-docker exec --user www-data "$CONTAINER" wp core install \
-    --url="http://localhost:${PORT}" \
-    --title="$TITLE" \
-    --admin_user="$ADMIN_USER" \
-    --admin_password="$ADMIN_PASS" \
-    --admin_email="$ADMIN_EMAIL" \
-    --skip-email >&2
-
-# --- Force password change on first login ---
-docker exec --user www-data "$CONTAINER" wp user meta update 1 default_password_nag 1 >&2
-
-# --- Output result ---
-printf '{"ok":true,"name":"%s","url":"http://localhost:%s","admin_url":"http://localhost:%s/wp-admin","admin_user":"%s","admin_password":"%s","message":"WordPress site ready. You will be prompted to change your password on first login."}\n' \
-    "$NAME" "$PORT" "$PORT" "$ADMIN_USER" "$ADMIN_PASS"
+# --- Output result — user completes setup in browser ---
+printf '{"ok":true,"name":"%s","url":"http://localhost:%s","setup_url":"http://localhost:%s/wp-admin/install.php","message":"WordPress is ready. Complete setup in your browser."}\n' \
+    "$NAME" "$PORT" "$PORT"

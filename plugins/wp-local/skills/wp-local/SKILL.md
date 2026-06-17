@@ -65,7 +65,7 @@ AskUserQuestion:
 2. **Site title:** Extract from context if obvious. Otherwise use the site name as the title (do not ask unless the user volunteers it — keep the flow fast).
 
 3. Tell the user:
-   > "Creating WordPress site `<name>` — this takes about 1-2 minutes the first time while Docker pulls images and WP-CLI configures everything. I'll show you the credentials when it's ready."
+   > "Creating WordPress site `<name>` — this takes about 1-2 minutes the first time while Docker pulls images. I'll give you the setup URL when it's ready."
 
 4. Run via Bash:
    ```bash
@@ -74,19 +74,15 @@ AskUserQuestion:
    (stderr will show progress; capture stdout as JSON)
 
 5. Parse the JSON result:
-   - **If `ok` is true**, present credentials clearly:
+   - **If `ok` is true**, send the user to the setup wizard:
 
      ```
-     WordPress site ready!
+     WordPress is ready! Complete your setup in the browser:
 
-     URL:           http://localhost:<port>
-     Admin panel:   http://localhost:<port>/wp-admin
-     Username:      admin
-     Password:      <admin_password>
+     Setup URL:   http://localhost:<port>/wp-admin/install.php
+     Site URL:    http://localhost:<port>
 
-     You will be prompted to change your password on first login.
-
-     To run WP-CLI commands directly:
+     WP-CLI is installed in the container for later use:
        docker exec --user www-data <name>-wordpress-1 wp <command>
      ```
 

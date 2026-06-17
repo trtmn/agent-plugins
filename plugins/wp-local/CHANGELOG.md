@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1] — 2026-06-17
+
+### Changed
+- `create` now skips auto-admin setup — WordPress standard browser install wizard instead
+- WP-CLI is still installed in the container at create time for later use
+- Fixed health check to verify HTTP status code rather than page content (was failing on 302 redirect before first setup)
+
 ## [1.0.0] — 2026-06-17
 
 ### Added
