@@ -95,7 +95,7 @@ services:
     volumes:
       - wp_data:/var/www/html
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost/wp-login.php | grep -q 'WordPress' || exit 1"]
+      test: ["CMD-SHELL", "curl -s http://localhost/ -o /dev/null -w '%{http_code}' | grep -qE '^[23]' || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 12
