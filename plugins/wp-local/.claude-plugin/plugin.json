@@ -1,0 +1,5 @@
+{
+  "name": "wp-local",
+  "version": "1.0.0",
+  "description": "Spin up and manage local WordPress demo sites using Docker Compose and WP-CLI. Use this skill to create a fresh WordPress site, start/stop an existing site, list all local sites, or fully destroy one. Trigger on: \"spin up a WordPress site\", \"local WordPress\", \"new WordPress dev environment\", \"create a demo site\", \"WordPress demo\", \"start my WordPress\", \"stop my WordPress\", \"destroy WordPress site\", \"list my WordPress sites\", \"wp-local\"."
+}
