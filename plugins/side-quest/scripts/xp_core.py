@@ -98,6 +98,56 @@ TICK_FLAVOR_TEMPLATES = [
     "whispered sweet nothings to {tool}",
     "gave {tool} a run for its money",
     "yeeted {tool} directly at the problem",
+    "bribed {tool} with a virtual cookie",
+    "arm-wrestled {tool} into submission",
+    "sent {tool} on a heroic quest",
+    "taught {tool} a new trick",
+    "coaxed {tool} out of hiding",
+    "gave {tool} a pep talk",
+    "fine-tuned {tool} with a wrench and a prayer",
+    "let {tool} off its leash",
+    "rode {tool} into battle",
+    "consulted the ancient scrolls of {tool}",
+    "did a victory lap with {tool}",
+    "sharpened {tool} to a fine edge",
+    "gave {tool} a gold star",
+    "tuned {tool} like a fine instrument",
+    "sent {tool} down the assembly line",
+    "poked {tool} until it made noise",
+    "cast a minor spell using {tool}",
+    "drafted {tool} into the elite squad",
+    "bribed the compiler with {tool}",
+    "took {tool} for a test drive",
+    "gave {tool} its moment to shine",
+    "let {tool} do the heavy lifting",
+    "put {tool} through its paces",
+    "assembled the {tool} avengers",
+    "invoked {tool} with great ceremony",
+    "dusted off {tool} and got to work",
+    "gave {tool} a firm handshake",
+    "sicced {tool} on the bug",
+    "let {tool} loose in the wild",
+    "handed {tool} the keys to the kingdom",
+    "gave {tool} a friendly nudge",
+    "set {tool} to maximum overdrive",
+    "carefully calibrated {tool}",
+    "gave {tool} a well-earned coffee break after",
+    "enlisted {tool} for a daring mission",
+    "trusted {tool} with the crown jewels",
+    "gave {tool} the green light",
+    "let {tool} take the wheel",
+    "spun up {tool} like a wizard",
+    "gave {tool} a standing ovation",
+    "put {tool} on the fast track",
+    "gave {tool} a knighthood",
+    "sent {tool} in to save the day",
+    "gave {tool} a very important job",
+    "unlocked {tool}'s true potential",
+    "gave {tool} a turbo boost",
+    "called in {tool} as backup",
+    "gave {tool} the spotlight",
+    "let {tool} flex its muscles",
+    "gave {tool} a well-deserved promotion",
 ]
 
 DEFAULT_TOOL_FILLER = "the tools"
@@ -240,6 +290,54 @@ def publish_event(
         return False
 
 
+MQTT_STATE_TOPIC = "sidequest/xp/state"
+
+
+def publish_state(
+    ledger,
+    machine,
+    host=MQTT_BROKER_HOST,
+    topic=MQTT_STATE_TOPIC,
+    timeout=MQTT_PUBLISH_TIMEOUT,
+    mosquitto_pub_cmd="mosquitto_pub",
+):
+    """Publish a retained snapshot of the current shared total. This is an
+    observability/bootstrap convenience, not the source of truth for
+    merging — the event stream (publish_event) is what keeps totals
+    consistent across machines. A retained message means any client that
+    connects (including one joining sync for the first time) gets the
+    last known total immediately, without waiting for the next event."""
+    payload = {
+        "machine": machine,
+        "ts": _now_iso(),
+        "total_xp": ledger.get("total_xp", 0),
+        "level": ledger.get("level", 1),
+        "quests_completed": ledger.get("quests_completed", 0),
+        "next_level_at": ledger.get("next_level_at"),
+    }
+    try:
+        result = subprocess.run(
+            [
+                mosquitto_pub_cmd,
+                "-h",
+                host,
+                "-t",
+                topic,
+                "-q",
+                "1",
+                "-r",
+                "-m",
+                json.dumps(payload),
+            ],
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def _empty_ledger():
     return {
         "total_xp": 0,
@@ -322,6 +420,13 @@ def _publish_or_outbox(event):
         append_outbox(_outbox_path(), event)
 
 
+def _publish_state_best_effort(ledger):
+    """Publish the retained total-XP snapshot. Best-effort only — unlike
+    events, a missed state update is superseded by the next one, so
+    there's no outbox for this."""
+    publish_state(ledger, _machine_name(), mosquitto_pub_cmd=_mosquitto_pub_cmd())
+
+
 def cmd_award(argv):
     if len(argv) < 2:
         print(
@@ -346,6 +451,7 @@ def cmd_award(argv):
     apply_event(ledger, event)
     save_ledger(_ledger_path(), ledger)
     _publish_or_outbox(event)
+    _publish_state_best_effort(ledger)
 
     entry = ledger["history"][-1]
     print(
@@ -403,6 +509,7 @@ def cmd_apply_remote(argv):
     ledger = load_ledger(_ledger_path())
     apply_event(ledger, event)
     save_ledger(_ledger_path(), ledger)
+    _publish_state_best_effort(ledger)
 
 
 def cmd_flush_outbox(argv):
@@ -433,6 +540,7 @@ def cmd_flush_ticks(argv):
     record_applied(ledger, combined["event_id"])
     save_ledger(_ledger_path(), ledger)
     _publish_or_outbox(combined)
+    _publish_state_best_effort(ledger)
 
     _pending_ticks_path().write_text("")
     print(json.dumps({"flushed": len(pending), "combined_xp": combined["xp"]}))

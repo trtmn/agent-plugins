@@ -14,6 +14,14 @@ def _write_fake_pub(home, exit_code=0):
     return fake_pub
 
 
+def _write_spy_pub(home):
+    fake_pub = home / "fake_mosquitto_pub"
+    log = home / "pub_argv.log"
+    fake_pub.write_text(f'#!/bin/sh\necho "$@" >> "{log}"\nexit 0\n')
+    fake_pub.chmod(0o755)
+    return log
+
+
 def _run(args, home, extra_env=None):
     if not (home / "fake_mosquitto_pub").exists():
         _write_fake_pub(home, exit_code=0)
@@ -64,6 +72,18 @@ def test_tick_with_tool_name_names_it_in_the_flavor_text(tmp_path):
 
     ledger = json.loads((tmp_path / "xp.json").read_text())
     assert "Grep" in ledger["history"][-1]["flavor"]
+
+
+def test_award_also_publishes_a_retained_state_snapshot(tmp_path):
+    log = _write_spy_pub(tmp_path)
+    result = _run(["award", "2", "success", "state snapshot test"], home=tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    calls = log.read_text().strip().splitlines()
+    state_calls = [c for c in calls if "sidequest/xp/state" in c]
+    assert len(state_calls) == 1
+    assert " -r " in f" {state_calls[0]} "
+    assert "450" in state_calls[0]  # CR2 success xp
 
 
 def test_award_queues_to_outbox_when_broker_unreachable(tmp_path):

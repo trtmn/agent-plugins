@@ -10,6 +10,7 @@ from xp_core import (
     new_tick_event,
     next_level_at,
     publish_event,
+    publish_state,
     random_flavor,
     read_outbox,
     record_applied,
@@ -114,8 +115,13 @@ def test_random_flavor_fills_in_the_given_tool_name():
 
 
 def test_random_flavor_templates_all_contain_a_tool_placeholder():
-    assert len(TICK_FLAVOR_TEMPLATES) > 5
+    assert len(TICK_FLAVOR_TEMPLATES) >= 50
     assert all("{tool}" in t for t in TICK_FLAVOR_TEMPLATES)
+
+
+def test_flavor_templates_are_all_unique():
+    # duplicates would silently shrink the effective variety
+    assert len(TICK_FLAVOR_TEMPLATES) == len(set(TICK_FLAVOR_TEMPLATES))
 
 
 def test_level_for_zero_xp_is_level_one():
@@ -350,6 +356,46 @@ def test_publish_event_returns_false_when_binary_missing(tmp_path):
     missing = str(tmp_path / "does-not-exist")
     event = new_tick_event(machine="machine-a")
     assert publish_event(event, mosquitto_pub_cmd=missing) is False
+
+
+def test_publish_state_returns_true_on_success(tmp_path):
+    fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=0)
+    ledger = _empty_ledger()
+    assert publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=fake_bin) is True
+
+
+def test_publish_state_returns_false_on_failure(tmp_path):
+    fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=1)
+    ledger = _empty_ledger()
+    assert publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=fake_bin) is False
+
+
+def test_publish_state_passes_the_retain_flag(tmp_path):
+    # the state topic must be retained so a machine that just connected
+    # (or joined for the first time) gets the current total immediately,
+    # without waiting for the next event.
+    spy_log = tmp_path / "argv.log"
+    spy = tmp_path / "mosquitto_pub"
+    spy.write_text(f'#!/bin/sh\necho "$@" >> "{spy_log}"\nexit 0\n')
+    spy.chmod(0o755)
+    ledger = _empty_ledger()
+    publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=str(spy))
+    argv = spy_log.read_text()
+    assert " -r " in f" {argv} "
+
+
+def test_publish_state_payload_includes_total_xp_and_machine(tmp_path):
+    spy_log = tmp_path / "argv.log"
+    spy = tmp_path / "mosquitto_pub"
+    spy.write_text(f'#!/bin/sh\necho "$@" >> "{spy_log}"\nexit 0\n')
+    spy.chmod(0o755)
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 12345
+    ledger["level"] = 9
+    publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=str(spy))
+    argv = spy_log.read_text()
+    assert "12345" in argv
+    assert '"machine-a"' in argv
 
 
 def test_publish_event_does_not_pass_flags_mosquitto_pub_rejects(tmp_path):
