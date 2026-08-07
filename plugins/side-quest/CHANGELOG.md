@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.2.0] — 2026-08-07
+Fresh-install bootstrap: new machines join the shared pool instead of
+starting at zero.
+
+- Root cause fixed: a newly-installed machine's ledger started counting
+  from 0 and only accumulated future deltas, so it permanently diverged
+  from every other machine's total instead of joining a shared pool.
+- New `xp.sh bootstrap`: the sync daemon fetches the retained
+  `sidequest/xp/state` snapshot once at startup, before subscribing to
+  the event stream, and adopts it as the starting total *only* if the
+  local ledger is genuinely fresh (`should_bootstrap_from_state` —
+  never touches a ledger that's already earned anything locally).
+  Records a zero-xp `bootstrap` history entry so the adoption is
+  visible. Verified end-to-end with a real fresh ledger against the
+  live broker.
+- `xp.sh award`/`tick`/`respond`/`flush-outbox` now respect
+  `XP_MQTT_HOST` for machines that can't resolve the broker's MagicDNS
+  hostname (previously only the daemon's subscribe loop did) — needed
+  for machine-b, whose Tailscale client isn't wired into system DNS.
+- Daemon fix: `xp-sync-daemon.sh` used `timeout`, which doesn't exist on
+  macOS by default; switched to `mosquitto_sub -W` (portable).
+
 ## [2.1.0] — 2026-08-07
 Retained MQTT state, difficulty-scaled response reward, more flavor variety.
 

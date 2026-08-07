@@ -18,11 +18,25 @@ XP_SH="$SCRIPT_DIR/xp.sh"
 
 MQTT_HOST="${XP_MQTT_HOST:-<broker-host>.<tailnet>.ts.net}"
 MQTT_TOPIC="sidequest/xp/events"
+MQTT_STATE_TOPIC="sidequest/xp/state"
 MACHINE="${XP_MACHINE:-$(hostname -s)}"
 CLIENT_ID="sidequest-${MACHINE}"
 
 log() {
   echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"
+}
+
+bootstrap_from_shared_state() {
+  # A fresh ledger (new machine, or a reinstall) would otherwise start
+  # counting from zero instead of joining the existing shared pool.
+  # Fetch the retained state snapshot once at startup and adopt it if
+  # this ledger has never earned anything locally (no-op otherwise —
+  # see should_bootstrap_from_state in xp_core.py).
+  local state
+  state="$(mosquitto_sub -h "$MQTT_HOST" -t "$MQTT_STATE_TOPIC" -q 1 -C 1 -W 5 2>>"$LOG_FILE")"
+  if [ -n "$state" ]; then
+    "$XP_SH" bootstrap "$state" >/dev/null 2>&1 || true
+  fi
 }
 
 tick_flush_loop() {
@@ -51,6 +65,8 @@ subscriber_loop() {
 
 LOG_FILE="${XP_SYNC_LOG:-$HOME/.claude/side-quest/xp-sync.log}"
 mkdir -p "$(dirname "$LOG_FILE")"
+
+bootstrap_from_shared_state
 
 tick_flush_loop &
 TICK_PID=$!

@@ -74,6 +74,21 @@ def test_tick_with_tool_name_names_it_in_the_flavor_text(tmp_path):
     assert "Grep" in ledger["history"][-1]["flavor"]
 
 
+def test_award_respects_xp_mqtt_host_override(tmp_path):
+    # some machines can't resolve the broker's MagicDNS hostname and
+    # need to target it by raw Tailscale IP instead
+    log = _write_spy_pub(tmp_path)
+    result = _run(
+        ["award", "1", "success", "host override test"],
+        home=tmp_path,
+        extra_env={"XP_MQTT_HOST": "100.99.99.99"},
+    )
+    assert result.returncode == 0, result.stderr
+    calls = log.read_text().strip().splitlines()
+    assert any("100.99.99.99" in c for c in calls)
+    assert not any("<broker-host>.<tailnet>.ts.net" in c for c in calls)
+
+
 def test_award_also_publishes_a_retained_state_snapshot(tmp_path):
     log = _write_spy_pub(tmp_path)
     result = _run(["award", "2", "success", "state snapshot test"], home=tmp_path)
@@ -167,6 +182,32 @@ def test_respond_is_debounced_right_after_an_ambient_award(tmp_path):
     assert result.returncode == 0, result.stderr
     after = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
     assert after == before  # skipped -- the model's own award already covered this turn
+
+
+def test_bootstrap_adopts_state_on_a_fresh_ledger(tmp_path):
+    state = {"total_xp": 818000, "level": 78, "quests_completed": 2500}
+    result = _run(["bootstrap", json.dumps(state)], home=tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    assert ledger["total_xp"] == 818000
+    assert ledger["history"][-1]["kind"] == "bootstrap"
+
+
+def test_bootstrap_is_a_noop_on_a_ledger_that_already_has_xp(tmp_path):
+    _run(["award", "1", "success", "already earning locally"], home=tmp_path)
+    before = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+
+    state = {"total_xp": 818000}
+    _run(["bootstrap", json.dumps(state)], home=tmp_path)
+
+    after = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+    assert after == before  # must not clobber real local earnings
+
+
+def test_bootstrap_handles_empty_input_gracefully(tmp_path):
+    result = _run(["bootstrap", ""], home=tmp_path)
+    assert result.returncode == 0, result.stderr
 
 
 def test_apply_remote_event_updates_ledger(tmp_path):

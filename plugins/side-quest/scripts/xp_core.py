@@ -291,6 +291,44 @@ def apply_event(ledger, event, history_cap=HISTORY_CAP):
     return True
 
 
+def should_bootstrap_from_state(ledger, state):
+    """True when this ledger is fresh (never earned anything locally) and
+    a retained MQTT state snapshot shows a real shared total to adopt.
+    A fresh install would otherwise start counting from zero instead of
+    joining the existing shared pool."""
+    if not state:
+        return False
+    if ledger.get("total_xp", 0) != 0 or ledger.get("history"):
+        return False
+    return state.get("total_xp", 0) > 0
+
+
+def apply_bootstrap(ledger, state, machine):
+    """Adopt a retained state snapshot as this ledger's starting point.
+    Records a zero-xp 'bootstrap' history entry (adopting existing total,
+    not earning new XP) so it's visible in the ledger's own history."""
+    ledger["total_xp"] = state.get("total_xp", 0)
+    ledger["level"] = state.get("level", level_for(ledger["total_xp"]))
+    ledger["quests_completed"] = state.get("quests_completed", 0)
+    ledger["next_level_at"] = state.get(
+        "next_level_at", next_level_at(ledger["total_xp"])
+    )
+    history = ledger.setdefault("history", [])
+    history.append(
+        {
+            "event_id": str(uuid.uuid4()),
+            "machine": machine,
+            "ts": _now_iso(),
+            "kind": "bootstrap",
+            "xp": 0,
+            "source": "bootstrap",
+            "flavor": f"joined the shared pool at {ledger['total_xp']:,} XP",
+            "leveled_up": False,
+            "new_level": ledger["level"],
+        }
+    )
+
+
 TICK_FLUSH_INTERVAL = 10.0
 
 
@@ -507,9 +545,15 @@ def _mosquitto_pub_cmd():
     return os.environ.get("MOSQUITTO_PUB_CMD", "mosquitto_pub")
 
 
+def _mqtt_host():
+    return os.environ.get("XP_MQTT_HOST", MQTT_BROKER_HOST)
+
+
 def _publish_or_outbox(event):
     """Try to publish immediately; queue to the outbox on any failure."""
-    if not publish_event(event, mosquitto_pub_cmd=_mosquitto_pub_cmd()):
+    if not publish_event(
+        event, host=_mqtt_host(), mosquitto_pub_cmd=_mosquitto_pub_cmd()
+    ):
         append_outbox(_outbox_path(), event)
 
 
@@ -517,7 +561,12 @@ def _publish_state_best_effort(ledger):
     """Publish the retained total-XP snapshot. Best-effort only — unlike
     events, a missed state update is superseded by the next one, so
     there's no outbox for this."""
-    publish_state(ledger, _machine_name(), mosquitto_pub_cmd=_mosquitto_pub_cmd())
+    publish_state(
+        ledger,
+        _machine_name(),
+        host=_mqtt_host(),
+        mosquitto_pub_cmd=_mosquitto_pub_cmd(),
+    )
 
 
 def cmd_award(argv):
@@ -635,12 +684,31 @@ def cmd_apply_remote(argv):
     _publish_state_best_effort(ledger)
 
 
+def cmd_bootstrap(argv):
+    """Adopt a retained MQTT state snapshot if this ledger is fresh. Reads
+    state JSON from argv[0], or stdin if argv is empty / '-'. Called once
+    by the daemon at startup, before it subscribes to the event stream --
+    so a newly-installed machine joins the existing shared total instead
+    of starting over at zero."""
+    raw = argv[0] if argv and argv[0] != "-" else sys.stdin.read()
+    raw = raw.strip()
+    if not raw:
+        return
+    state = json.loads(raw)
+    ledger = load_ledger(_ledger_path())
+    if should_bootstrap_from_state(ledger, state):
+        apply_bootstrap(ledger, state, _machine_name())
+        save_ledger(_ledger_path(), ledger)
+
+
 def cmd_flush_outbox(argv):
     """Retry every queued event; drop only the ones that publish. Called
     by the daemon on every (re)connect."""
     flushed = 0
     for event in read_outbox(_outbox_path()):
-        if publish_event(event, mosquitto_pub_cmd=_mosquitto_pub_cmd()):
+        if publish_event(
+            event, host=_mqtt_host(), mosquitto_pub_cmd=_mosquitto_pub_cmd()
+        ):
             remove_from_outbox(_outbox_path(), event["event_id"])
             flushed += 1
     print(json.dumps({"flushed": flushed}))
@@ -676,6 +744,7 @@ COMMANDS = {
     "status": cmd_status,
     "statusline": cmd_statusline,
     "apply-remote": cmd_apply_remote,
+    "bootstrap": cmd_bootstrap,
     "flush-outbox": cmd_flush_outbox,
     "flush-ticks": cmd_flush_ticks,
 }

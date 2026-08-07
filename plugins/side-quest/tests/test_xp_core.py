@@ -1,6 +1,7 @@
 from xp_core import (
     TICK_FLAVOR_TEMPLATES,
     append_outbox,
+    apply_bootstrap,
     apply_event,
     coalesce_ticks,
     count_hook_entries_since,
@@ -18,6 +19,7 @@ from xp_core import (
     record_applied,
     remove_from_outbox,
     save_ledger,
+    should_bootstrap_from_state,
     should_flush_ticks,
     xp_for_tool_count,
 )
@@ -166,6 +168,64 @@ def test_new_response_event_meets_the_floor_with_no_tool_calls():
 def test_new_response_event_scales_with_tool_count():
     event = new_response_event(machine="machine-a", tool_count=15)
     assert event["xp"] > 10
+
+
+def test_should_bootstrap_from_state_true_for_fresh_ledger_with_higher_state():
+    ledger = _empty_ledger()
+    state = {"total_xp": 818000, "level": 78, "quests_completed": 2500}
+    assert should_bootstrap_from_state(ledger, state) is True
+
+
+def test_should_bootstrap_from_state_false_when_ledger_already_has_xp():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 50
+    ledger["history"] = [{"kind": "tick", "xp": 50}]
+    state = {"total_xp": 818000}
+    assert should_bootstrap_from_state(ledger, state) is False
+
+
+def test_should_bootstrap_from_state_false_when_state_total_is_zero():
+    ledger = _empty_ledger()
+    state = {"total_xp": 0}
+    assert should_bootstrap_from_state(ledger, state) is False
+
+
+def test_should_bootstrap_from_state_false_when_state_missing():
+    ledger = _empty_ledger()
+    assert should_bootstrap_from_state(ledger, None) is False
+
+
+def test_apply_bootstrap_adopts_the_state_totals():
+    ledger = _empty_ledger()
+    state = {
+        "total_xp": 818000,
+        "level": 78,
+        "quests_completed": 2500,
+        "next_level_at": 824000,
+    }
+    apply_bootstrap(ledger, state, machine="machine-b")
+    assert ledger["total_xp"] == 818000
+    assert ledger["level"] == 78
+    assert ledger["quests_completed"] == 2500
+    assert ledger["next_level_at"] == 824000
+
+
+def test_apply_bootstrap_does_not_double_count_on_replay():
+    ledger = _empty_ledger()
+    state = {"total_xp": 818000, "level": 78, "quests_completed": 2500}
+    apply_bootstrap(ledger, state, machine="machine-b")
+    # a second bootstrap attempt against an already-bootstrapped ledger
+    # must be a caller-level no-op, guarded by should_bootstrap_from_state
+    assert should_bootstrap_from_state(ledger, state) is False
+
+
+def test_apply_bootstrap_records_a_history_entry(tmp_path=None):
+    ledger = _empty_ledger()
+    state = {"total_xp": 818000, "level": 78, "quests_completed": 2500}
+    apply_bootstrap(ledger, state, machine="machine-b")
+    assert len(ledger["history"]) == 1
+    assert ledger["history"][0]["kind"] == "bootstrap"
+    assert ledger["history"][0]["xp"] == 0  # adopting, not earning new XP
 
 
 def test_flavor_templates_are_all_unique():
