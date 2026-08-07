@@ -76,35 +76,39 @@ if [ -n "$actual_dir" ] && [ -d "$actual_dir" ]; then
 fi
 
 # Detect active VS Code document via AppleScript (macOS only, silent on failure)
+# TEMPORARILY DISABLED: this was being invoked on every statusline refresh across
+# multiple Claude CLI sessions, causing launchservicesd/WindowServer/trustd thrashing
+# and extremely high system CPU. Re-enable once refresh-rate/caching is added.
 vscode_file=""
-if command -v osascript >/dev/null 2>&1; then
-  vscode_file=$(osascript 2>/dev/null <<'APPLESCRIPT'
-tell application "System Events"
-  set vsRunning to (name of processes) contains "Code"
-end tell
-if not vsRunning then return ""
-tell application "Code"
-  if (count of windows) > 0 then
-    set docName to name of front window
-    -- Strip common VS Code window title suffixes (e.g. " - Visual Studio Code", " - workspace name")
-    set AppleScript's text item delimiters to " - "
-    set parts to text items of docName
-    if (count of parts) > 1 then
-      set docName to item 1 of parts
-    end if
-    return docName
-  end if
-end tell
-return ""
-APPLESCRIPT
-  )
-fi
+# if command -v osascript >/dev/null 2>&1; then
+#   vscode_file=$(osascript 2>/dev/null <<'APPLESCRIPT'
+# tell application "System Events"
+#   set vsRunning to (name of processes) contains "Code"
+# end tell
+# if not vsRunning then return ""
+# tell application "Code"
+#   if (count of windows) > 0 then
+#     set docName to name of front window
+#     -- Strip common VS Code window title suffixes (e.g. " - Visual Studio Code", " - workspace name")
+#     set AppleScript's text item delimiters to " - "
+#     set parts to text items of docName
+#     if (count of parts) > 1 then
+#       set docName to item 1 of parts
+#     end if
+#     return docName
+#   end if
+# end tell
+# return ""
+# APPLESCRIPT
+#   )
+# fi
 
 # Side-quest XP ledger (written by the side-quest plugin's xp.sh)
 xp_level=""
 xp_total=""
 xp_to_next=""
-xp_award=""     # transient: non-empty for 5s after an award
+xp_award=""     # transient: non-empty for 8s after an award
+xp_flavor=""    # humorous "why" text, e.g. "wielded Grep like a jedi lightsaber"
 xp_levelup=false
 xp_file="$HOME/.claude/side-quest/xp.json"
 if [ -f "$xp_file" ]; then
@@ -120,11 +124,12 @@ if [ -f "$xp_file" ]; then
     fi
   fi
 
-  # Transient award: show for 5 seconds after last award
+  # Transient award: show for 8 seconds after last award, long enough to read
   last_entry=$(jq -c '.history[-1] // empty' "$xp_file" 2>/dev/null)
   if [ -n "$last_entry" ]; then
     last_ts=$(echo "$last_entry" | jq -r '.ts // empty')
     last_xp=$(echo "$last_entry" | jq -r '.xp // 0')
+    last_flavor=$(echo "$last_entry" | jq -r '.flavor // empty')
     leveled_up=$(echo "$last_entry" | jq -r '.leveled_up // false')
     new_level=$(echo "$last_entry" | jq -r '.new_level // empty')
     if [ -n "$last_ts" ] && [ "$last_xp" -gt 0 ] 2>/dev/null; then
@@ -135,8 +140,9 @@ dt = datetime.fromisoformat(sys.argv[1])
 print(int((datetime.now(timezone.utc) - dt).total_seconds()))
 PY
 )
-      if [ -n "$age" ] && [ "$age" -lt 5 ] 2>/dev/null; then
+      if [ -n "$age" ] && [ "$age" -lt 8 ] 2>/dev/null; then
         xp_award="+${last_xp} XP"
+        xp_flavor="$last_flavor"
         if [ "$leveled_up" = "true" ] && [ -n "$new_level" ]; then
           xp_levelup=true
         fi
@@ -181,11 +187,15 @@ if [ -n "$xp_level" ]; then
     fi
   else
     # sword + level in bold cyan, XP total in yellow, to-next dim white
+    xp_total_fmt=$(awk -v n="$xp_total" 'BEGIN{printf "%'"'"'d\n", n}' 2>/dev/null || echo "$xp_total")
     printf "⚔️ \033[1;36mLv%s\033[0m \033[33m%s XP\033[0m \033[2;37m(%s)\033[0m" \
-      "$xp_level" "$xp_total" "$xp_to_next"
-    # transient award in bright green
+      "$xp_level" "$xp_total_fmt" "$xp_to_next"
+    # transient award in bright green, with the humorous "why" alongside it
     if [ -n "$xp_award" ]; then
       printf "  \033[1;32m%s ✨\033[0m" "$xp_award"
+      if [ -n "$xp_flavor" ]; then
+        printf " \033[2;3m(%s)\033[0m" "$xp_flavor"
+      fi
     fi
     printf "\n"
   fi
