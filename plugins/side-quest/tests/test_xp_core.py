@@ -3,10 +3,12 @@ from xp_core import (
     append_outbox,
     apply_event,
     coalesce_ticks,
+    count_hook_entries_since,
     is_applied,
     level_for,
     load_ledger,
     new_award_event,
+    new_response_event,
     new_tick_event,
     next_level_at,
     publish_event,
@@ -17,6 +19,7 @@ from xp_core import (
     remove_from_outbox,
     save_ledger,
     should_flush_ticks,
+    xp_for_tool_count,
 )
 
 
@@ -115,8 +118,54 @@ def test_random_flavor_fills_in_the_given_tool_name():
 
 
 def test_random_flavor_templates_all_contain_a_tool_placeholder():
-    assert len(TICK_FLAVOR_TEMPLATES) >= 50
+    assert len(TICK_FLAVOR_TEMPLATES) >= 100
     assert all("{tool}" in t for t in TICK_FLAVOR_TEMPLATES)
+
+
+def test_xp_for_tool_count_gives_at_least_the_floor_for_zero_tools():
+    assert xp_for_tool_count(0) == 10
+
+
+def test_xp_for_tool_count_never_goes_below_the_floor():
+    for n in range(100):
+        assert xp_for_tool_count(n) >= 10
+
+
+def test_xp_for_tool_count_increases_with_more_tool_calls():
+    assert xp_for_tool_count(1) > xp_for_tool_count(0)
+    assert xp_for_tool_count(5) > xp_for_tool_count(1)
+    assert xp_for_tool_count(20) > xp_for_tool_count(5)
+
+
+def test_count_hook_entries_since_counts_only_tick_sourced_entries_after_boundary():
+    history = [
+        {"source": "hook", "ts": "2026-08-07T21:00:00+00:00"},
+        {"source": "ambient", "ts": "2026-08-07T21:00:05+00:00"},
+        {"source": "hook", "ts": "2026-08-07T21:00:10+00:00"},
+        {"source": "hook", "ts": "2026-08-07T21:00:15+00:00"},
+    ]
+    count = count_hook_entries_since(history, "2026-08-07T21:00:05+00:00")
+    assert count == 2
+
+
+def test_count_hook_entries_since_counts_everything_when_no_boundary():
+    history = [
+        {"source": "hook", "ts": "2026-08-07T21:00:00+00:00"},
+        {"source": "hook", "ts": "2026-08-07T21:00:10+00:00"},
+    ]
+    assert count_hook_entries_since(history, None) == 2
+
+
+def test_new_response_event_meets_the_floor_with_no_tool_calls():
+    event = new_response_event(machine="machine-a", tool_count=0)
+    assert event["xp"] == 10
+    assert event["kind"] == "response"
+    assert event["source"] == "stop-hook"
+
+
+def test_new_response_event_scales_with_tool_count():
+    event = new_response_event(machine="machine-a", tool_count=15)
+    assert event["xp"] > 10
 
 
 def test_flavor_templates_are_all_unique():

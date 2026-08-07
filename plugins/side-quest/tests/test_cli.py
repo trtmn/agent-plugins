@@ -135,6 +135,40 @@ def test_flush_ticks_is_a_noop_when_nothing_pending(tmp_path):
     assert json.loads(result.stdout)["flushed"] == 0
 
 
+def test_respond_awards_the_floor_when_no_tool_calls_happened(tmp_path):
+    result = _run(["respond"], home=tmp_path)
+    assert result.returncode == 0, result.stderr
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    assert ledger["total_xp"] == 10
+    assert ledger["history"][-1]["kind"] == "response"
+
+
+def test_respond_scales_up_with_prior_tick_count(tmp_path):
+    for _ in range(6):
+        _run(["tick"], home=tmp_path)
+    result = _run(["respond"], home=tmp_path)
+    assert result.returncode == 0, result.stderr
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    # 6 ticks * 10xp + response reward for a 6-tool-call turn (tier > 10xp)
+    assert ledger["total_xp"] == 60 + 80
+
+
+def test_respond_does_not_bump_quests_completed(tmp_path):
+    _run(["respond"], home=tmp_path)
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    assert ledger["quests_completed"] == 0
+
+
+def test_respond_is_debounced_right_after_an_ambient_award(tmp_path):
+    _run(["award", "1", "success", "just did a thing"], home=tmp_path)
+    before = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+
+    result = _run(["respond"], home=tmp_path)
+    assert result.returncode == 0, result.stderr
+    after = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+    assert after == before  # skipped -- the model's own award already covered this turn
+
+
 def test_apply_remote_event_updates_ledger(tmp_path):
     event = {
         "event_id": "remote-evt-1",

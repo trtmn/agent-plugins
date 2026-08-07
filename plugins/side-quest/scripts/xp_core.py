@@ -148,6 +148,58 @@ TICK_FLAVOR_TEMPLATES = [
     "gave {tool} the spotlight",
     "let {tool} flex its muscles",
     "gave {tool} a well-deserved promotion",
+    # unhinged tier
+    "challenged {tool} to a staring contest and won by sheer force of will",
+    "fed {tool} a raw onion like an apple and it respected that",
+    "launched {tool} out of a trebuchet aimed directly at the bug",
+    "convinced {tool} it was always a bird, and now it flies",
+    "held a tiny funeral for the old code and {tool} officiated",
+    "signed a blood pact with {tool} written entirely in semicolons",
+    "microwaved a burrito while {tool} did all the actual thinking",
+    "opened a wormhole and {tool} came out the other side smug",
+    "taught {tool} interpretive dance and it chose violence instead",
+    "found {tool} in the walls, feral, and negotiated a truce",
+    "whispered sweet nothings into {tool} until it fixed itself",
+    "put {tool} in a tiny cape and let it believe it's a superhero",
+    "traded your firstborn to a goblin market for {tool}'s services",
+    "summoned {tool} via forbidden ritual involving stale coffee grounds",
+    "let {tool} drive and somehow it parallel-parked the whole codebase",
+    "gave {tool} a participation trophy shaped like a semicolon",
+    "bribed {tool} with a single Dorito and it delivered anyway",
+    "unleashed {tool} like a chaos raccoon into a dumpster of legacy code",
+    "married {tool} in a small ceremony officiated by a rubber duck",
+    "sent {tool} into the mines and it came back with diamonds, somehow",
+    "played 4D chess against {tool} and lost gloriously",
+    "gave {tool} an inspirational TED talk it absolutely did not need",
+    "launched {tool} off a skateboard ramp directly into the terminal",
+    "fought {tool} in the thunderdome and both of you won",
+    "let {tool} loose in a china shop and nothing broke, weirdly",
+    "hotwired {tool} using nothing but vibes and a paperclip",
+    "sacrificed a rubber chicken to appease {tool}'s ancient spirit",
+    "convinced {tool} the bug was actually a feature, and it believed you",
+    "took {tool} on a first date and it paid for the whole codebase",
+    "threw {tool} into a volcano and it emerged as a legendary sword",
+    "let {tool} babysit the codebase and it fell asleep victorious",
+    "channeled ancient raccoon energy directly through {tool}",
+    "put {tool} through gladiator training and it now wears a tiny helmet",
+    "asked {tool} nicely, which somehow worked better than yelling",
+    "watched {tool} moonwalk backward into a perfectly solved problem",
+    "gave {tool} a pep talk in the mirror and it believed every word",
+    "sent {tool} a strongly worded letter and it fixed everything out of spite",
+    "let {tool} ride a mechanical bull straight through the bug report",
+    "beamed {tool} up, did the work in orbit, beamed it back down",
+    "handed {tool} a lightning bolt and told it to figure out the rest",
+    "adopted {tool} from a shelter for stray semicolons",
+    "gave {tool} a jetpack and pointed vaguely at the problem",
+    "made {tool} sign a non-disclosure agreement about what really happened",
+    "let {tool} eat a ghost pepper on a dare and it typed even faster",
+    "hosted an intervention for {tool} that somehow turned into a rave",
+    "found {tool} living in your terminal rent-free and let it cook",
+    "gave {tool} the keys to the kingdom and it immediately fixed the moat",
+    "put {tool} in the ring against entropy itself and entropy tapped out",
+    "let {tool} narrate its own actions in a dramatic movie trailer voice",
+    "smuggled {tool} across the border of good and terrible code",
+    "gave {tool} one job, and it did nine others out of spite and love",
 ]
 
 DEFAULT_TOOL_FILLER = "the tools"
@@ -167,6 +219,47 @@ def new_tick_event(machine, xp=DEFAULT_TICK_XP, source="hook", flavor=None, tool
         "xp": xp,
         "source": source,
         "flavor": flavor if flavor is not None else random_flavor(tool),
+    }
+
+
+# Difficulty-scaled floor reward for any response, mechanically estimated
+# from tool-call count (no model judgment involved — this is a hook, not
+# an "Ambient XP" self-assessment). (max_tool_calls, xp), ascending;
+# first tier whose threshold covers the count wins.
+RESPONSE_XP_TIERS = [
+    (0, 10),
+    (2, 20),
+    (5, 40),
+    (10, 80),
+    (20, 150),
+    (float("inf"), 300),
+]
+
+
+def xp_for_tool_count(tool_count):
+    for threshold, xp in RESPONSE_XP_TIERS:
+        if tool_count <= threshold:
+            return xp
+    return RESPONSE_XP_TIERS[-1][1]
+
+
+def count_hook_entries_since(history, boundary_ts):
+    entries = [e for e in history if e.get("source") == "hook"]
+    if boundary_ts is None:
+        return len(entries)
+    return sum(1 for e in entries if e.get("ts", "") > boundary_ts)
+
+
+def new_response_event(machine, tool_count, source="stop-hook"):
+    return {
+        "event_id": str(uuid.uuid4()),
+        "machine": machine,
+        "ts": _now_iso(),
+        "kind": "response",
+        "xp": xp_for_tool_count(tool_count),
+        "source": source,
+        "tool_count": tool_count,
+        "flavor": f"handled {tool_count} tool call{'s' if tool_count != 1 else ''} this turn",
     }
 
 
@@ -479,6 +572,36 @@ def cmd_tick(argv):
     append_outbox(_pending_ticks_path(), event)
 
 
+RESPONSE_DEBOUNCE_SECONDS = 10
+
+
+def cmd_respond(argv):
+    """Difficulty-scaled floor reward for any response — a Stop hook, not
+    a model-issued call. Debounces against an 'ambient'/'stop-hook'
+    entry that just fired (e.g. this same turn's model-issued Ambient XP
+    call), so a turn isn't double-rewarded."""
+    ledger = load_ledger(_ledger_path())
+    history = ledger.get("history", [])
+    boundary_entry = next(
+        (e for e in reversed(history) if e.get("source") in ("ambient", "stop-hook")),
+        None,
+    )
+    if boundary_entry is not None:
+        age = (
+            datetime.now(timezone.utc) - datetime.fromisoformat(boundary_entry["ts"])
+        ).total_seconds()
+        if age < RESPONSE_DEBOUNCE_SECONDS:
+            return
+
+    boundary_ts = boundary_entry["ts"] if boundary_entry else None
+    tool_count = count_hook_entries_since(history, boundary_ts)
+    event = new_response_event(_machine_name(), tool_count)
+    apply_event(ledger, event)
+    save_ledger(_ledger_path(), ledger)
+    _publish_or_outbox(event)
+    _publish_state_best_effort(ledger)
+
+
 def cmd_status(argv):
     ledger = load_ledger(_ledger_path())
     ledger["level"] = level_for(ledger["total_xp"])
@@ -549,6 +672,7 @@ def cmd_flush_ticks(argv):
 COMMANDS = {
     "award": cmd_award,
     "tick": cmd_tick,
+    "respond": cmd_respond,
     "status": cmd_status,
     "statusline": cmd_statusline,
     "apply-remote": cmd_apply_remote,

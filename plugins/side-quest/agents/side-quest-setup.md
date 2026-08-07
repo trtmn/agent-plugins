@@ -111,7 +111,7 @@ Read `~/.claude/settings.json`. If it doesn't exist, create it as `{}`.
   "hooks": [
     {
       "type": "command",
-      "command": "python3 -c \"\nimport json, sys\nfrom pathlib import Path\nfrom datetime import datetime, timezone\nf = Path.home() / '.claude/side-quest/xp.json'\nif f.exists():\n    h = json.loads(f.read_text()).get('history', [])\n    if h:\n        dt = datetime.fromisoformat(h[-1]['ts'])\n        if (datetime.now(timezone.utc) - dt).total_seconds() < 120:\n            sys.exit(0)\nsys.exit(1)\n\" && exit 0; ~/.claude/side-quest/xp.sh award 1 success --source stop-hook 'turn completed' 2>/dev/null || true",
+      "command": "~/.claude/side-quest/xp.sh respond >/dev/null 2>&1 || true",
       "async": true,
       "timeout": 15
     }
@@ -119,7 +119,9 @@ Read `~/.claude/settings.json`. If it doesn't exist, create it as `{}`.
 }
 ```
 
-Before adding the Stop hook, check if one referencing `side-quest/xp.sh award` already exists — if so, skip to avoid duplicates.
+`respond` is a mechanical, difficulty-scaled floor reward for *any* response — minimum 10 XP even for a pure-conversation turn, scaling up with how many tool calls happened (counted from this machine's own tick history, no transcript parsing needed). It self-debounces: if an `ambient`- or `stop-hook`-sourced award landed in the last 10s (e.g. the model's own Ambient XP call already covered this turn), it's a no-op — so it never double-rewards the same turn.
+
+Before adding the Stop hook, check if one referencing `side-quest/xp.sh respond` (or the older `side-quest/xp.sh award 1 success --source stop-hook`) already exists — if so, skip to avoid duplicates. If you find the older flat-CR1 version, replace it with the `respond` version above.
 
 **PostToolUse tick hook** — append a new entry to the `hooks.PostToolUse` array (create it if absent). Do **not** remove or replace any existing `PostToolUse` entries (e.g. a lint-on-save hook) — this is an additional matcher, not a replacement:
 ```json

@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.1.0] — 2026-08-07
+Retained MQTT state, difficulty-scaled response reward, more flavor variety.
+
+- New `sidequest/xp/state` retained MQTT message published after every
+  award/tick-flush/remote-apply — any subscriber (including one that's
+  been quiet a while) fetches the current total_xp/level immediately,
+  no need to wait for the next event. Verified against the real broker.
+- New `xp.sh respond` replaces the old flat-CR1 (200XP) Stop-hook
+  fallback. Every response gets a mechanical, difficulty-scaled reward
+  with a 10 XP floor — scaled by how many tool calls happened this turn
+  (counted from this machine's own tick history, no transcript
+  parsing). Self-debounces against a recent `ambient`/`stop-hook`
+  award so a turn is never double-rewarded.
+- `TICK_FLAVOR_TEMPLATES` expanded from 16 to 116 (all unique), including
+  a batch of deliberately unhinged ones.
+
 ## [2.0.0] — 2026-08-07
 Cross-machine XP sync over MQTT, plus granular hook-based ticks.
 
