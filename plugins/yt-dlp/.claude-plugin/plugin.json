@@ -1,0 +1,5 @@
+{
+  "name": "yt-dlp",
+  "version": "1.0.0",
+  "description": "Download YouTube videos, thumbnails, and subtitles with yt-dlp, transcode anything not natively Apple TV-compatible to HEVC/AAC MP4, and optionally sync the result to a remote media server over rsync/SSH with a Jellyfin library refresh. Use this skill whenever the user wants to download a YouTube video, grab a video's thumbnail, or asks to \"/ytdlp\" a URL. All remote-sync and Jellyfin settings are optional and configured per-machine via environment variables — with no configuration at all, it just downloads to a local folder."
+}

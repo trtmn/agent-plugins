@@ -117,6 +117,11 @@
       "name": "youtube-data-api",
       "source": "./plugins/youtube-data-api",
       "description": "Query and manage YouTube channels, videos, playlists, and analytics using the YouTube Data API v3. Use this skill whenever the user mentions YouTube, their channel, video stats, subscriber counts, upload lists, playlists, video views, search results, or anything related to YouTube data. Trigger on phrases like 'check my YouTube', 'how are my videos doing', 'list my uploads', 'YouTube stats', 'video views', 'subscriber count', 'search YouTube for', 'my channel', or any reference to YouTube content management and analytics."
+    },
+    {
+      "name": "yt-dlp",
+      "source": "./plugins/yt-dlp",
+      "description": "Download YouTube videos, thumbnails, and subtitles with yt-dlp, transcode anything not natively Apple TV-compatible to HEVC/AAC MP4, and optionally sync the result to a remote media server over rsync/SSH with a Jellyfin library refresh. Use this skill whenever the user wants to download a YouTube video, grab a video's thumbnail, or asks to \"/ytdlp\" a URL. All remote-sync and Jellyfin settings are optional and configured per-machine via environment variables — with no configuration at all, it just downloads to a local folder."
     }
   ]
 }

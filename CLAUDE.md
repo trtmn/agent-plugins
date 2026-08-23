@@ -18,7 +18,7 @@ Install path:
 
 ## Existing Plugins
 
-cowsay, font-extractor, home-assistant, homebrew-dev, imsg, jellyfin, mastodon-cli, obsidian-cli, preflight-check, pushover, quack, recipe-fetch, self-improvement, side-quest, skills-manager, tailscale-policy-manager, touch_file, unifi-api, video-extract, wp-custom-theme, wp-local, youtube-data-api.
+cowsay, font-extractor, home-assistant, homebrew-dev, imsg, jellyfin, mastodon-cli, obsidian-cli, preflight-check, pushover, quack, recipe-fetch, self-improvement, side-quest, skills-manager, tailscale-policy-manager, touch_file, unifi-api, video-extract, wp-custom-theme, wp-local, youtube-data-api, yt-dlp.
 
 `self-improvement` is the full **learning loop** in one plugin (as of v2.0.0 it absorbed the former standalone `learnings` plugin). It ships two skills + three agents:
 - **Capture** (`learnings` skill + agent) — autonomous. Main Claude delegates to the `learnings` subagent **in the background** on every correction/error/suggestion; it appends `Status: pending` entries to `~/.learnings/`.
