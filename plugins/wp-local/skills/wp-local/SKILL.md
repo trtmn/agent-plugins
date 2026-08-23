@@ -15,7 +15,7 @@ Sites persist in `~/wordpress-sites/<name>/` and survive reboots as long as Dock
 
 ## Scripts
 
-All scripts live at `~/.claude/skills/wp-local/scripts/`. They output JSON to stdout; progress and errors go to stderr.
+All scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/wp-local/scripts/`. They output JSON to stdout; progress and errors go to stderr.
 
 | Script | Purpose |
 |---|---|
@@ -69,7 +69,7 @@ AskUserQuestion:
 
 4. Run via Bash:
    ```bash
-   bash ~/.claude/skills/wp-local/scripts/create.sh "<name>" "<title>"
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/wp-local/scripts/create.sh "<name>" "<title>"
    ```
    (stderr will show progress; capture stdout as JSON)
 
@@ -152,7 +152,7 @@ This is irreversible. Follow these steps carefully:
 
 5. **If confirmed:** Run via Bash:
    ```bash
-   bash ~/.claude/skills/wp-local/scripts/destroy.sh "<name>" "<name>"
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/wp-local/scripts/destroy.sh "<name>" "<name>"
    ```
 
 6. On success: "Site `<name>` has been destroyed. All data is permanently deleted."
