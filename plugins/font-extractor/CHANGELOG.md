@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.2] — 2026-08-23
+
+### Removed
+- `download_fonts.py` — dead code, never called by `SKILL.md`. The
+  actual workflow downloads flat via `curl` (Step 1) then organizes by
+  reading each font's internal name table (`organize_fonts.py`, Step
+  2); this script duplicated that job via a different, unused
+  family→URL-mapping approach.
+
 ## [1.0.1] — 2026-08-23
 
 ### Fixed
