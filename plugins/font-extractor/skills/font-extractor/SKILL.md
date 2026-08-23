@@ -57,7 +57,7 @@ Download all unique URLs. Do not deduplicate — different URLs may be different
 Run the bundled organize script. It reads each font file's internal metadata to determine its family name, then moves files into `./fonts/<family>/` subdirectories:
 
 ```bash
-uv run "$CLAUDE_PLUGIN_ROOT/scripts/organize_fonts.py" ./fonts
+uv run "$CLAUDE_PLUGIN_ROOT/skills/font-extractor/scripts/organize_fonts.py" ./fonts
 ```
 
 The script handles everything: reads the font name table, creates family directories, moves files. Fonts whose family can't be read get `Unknown-1`, `Unknown-2`, etc.
