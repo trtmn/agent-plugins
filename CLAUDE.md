@@ -14,7 +14,11 @@ Install path:
 
 ## Plugin Directory Structure and Conventions
 
-**See `AGENTS.md`** — it is the canonical source for the required plugin directory layout, `plugin.json`/`SKILL.md`/`CHANGELOG.md` conventions, the `$CLAUDE_PLUGIN_ROOT` path convention (and its exceptions), when a plugin needs a setup command, and the PII rule. Read it before creating or modifying any plugin.
+**See `AGENTS.md`** — it is the canonical source for the required plugin directory layout, `plugin.json`/`SKILL.md`/`CHANGELOG.md` conventions, the `$CLAUDE_PLUGIN_ROOT` path convention (and its exceptions), and when a plugin needs a setup command. Read it before creating or modifying any plugin.
+
+## PII Prevention — applies to every commit, not just plugin work
+
+This repo mirrors to a **public** GitHub repo. Before committing *anything* — plugin code, `docs/`, root-level files — see `AGENTS.md`'s "PII Prevention" section and run its mandatory pre-commit sweep. It has already happened once (a personal Tailscale hostname, SSH username, and machine names leaked via `docs/` and a plugin, requiring a `git filter-repo` history rewrite across every branch). `docs/` is not exempt — everything in this repo gets committed and pushed the same way.
 
 ## Existing Plugins
 
@@ -26,7 +30,7 @@ cowsay, font-extractor, home-assistant, homebrew-dev, imsg, jellyfin, mastodon-c
 
 ## Files to Know
 
-- `AGENTS.md` — canonical plugin directory structure and authoring conventions; read before creating or modifying any plugin
+- `AGENTS.md` — canonical plugin directory structure and authoring conventions, including the mandatory pre-commit PII sweep; read before creating or modifying any plugin, and before any commit
 - `.claude-plugin/marketplace.json` — marketplace manifest listing all plugins
 - `.gitignore` — excludes `**/.claude/settings.local.json`, `**/evals/`, workspace dirs, `.DS_Store`
 
