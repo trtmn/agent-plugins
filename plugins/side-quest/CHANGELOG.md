@@ -18,7 +18,7 @@ starting at zero.
 - `xp.sh award`/`tick`/`respond`/`flush-outbox` now respect
   `XP_MQTT_HOST` for machines that can't resolve the broker's MagicDNS
   hostname (previously only the daemon's subscribe loop did) — needed
-  for machine-b, whose Tailscale client isn't wired into system DNS.
+  for a machine whose Tailscale client isn't wired into system DNS.
 - Daemon fix: `xp-sync-daemon.sh` used `timeout`, which doesn't exist on
   macOS by default; switched to `mosquitto_sub -W` (portable).
 

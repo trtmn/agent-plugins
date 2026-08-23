@@ -7,16 +7,17 @@ Status: approved, implementing (machine-a first, then rollout)
 
 The side-quest XP ledger (`~/.claude/side-quest/xp.json`, driven by `xp.sh`) is
 currently per-machine local state. The user works across five machines (machine-a,
-machine-b, machine-d/machine-d, machine-c, and the the-broker-host homelab box) and wants a single
+machine-b, machine-d, machine-c, and the broker host itself, a homelab box) and wants a single
 shared XP pool: an award earned on any machine should show up on every other
 machine's statusline without polling, and small per-tool-call rewards should
 land with zero token cost (mechanical hooks, not model-issued Bash calls).
 
 ## Scope
 
-In scope: machine-a, machine-b, machine-c (macOS), machine-d/machine-d (Linux). The-broker-host is
-broker-only — no Claude Code CLI, no daemon, no statusline there (confirmed
-with user; the-broker-host has no CLI installed and this is intentional).
+In scope: machine-a, machine-b, machine-c (macOS), machine-d (Linux). The broker
+host is broker-only — no Claude Code CLI, no daemon, no statusline there
+(confirmed with user; the broker host has no CLI installed and this is
+intentional).
 
 Out of scope: authentication on the MQTT broker (Tailscale-only network is
 the trust boundary, per explicit user decision), a public `mqtt.trtmn.io`
@@ -31,7 +32,7 @@ an immutable event with a unique ID. Each machine keeps a full local copy of
 `xp.json` and applies events additively; order doesn't affect the running
 total, only cosmetic history ordering.
 
-- **Broker**: existing Mosquitto on the-broker-host (`<broker-host>.<tailnet>.ts.net:1883`),
+- **Broker**: existing Mosquitto on the broker host (`<broker-host>.<tailnet>.ts.net:1883`),
   Tailscale-only, no auth. Topic: `sidequest/xp/events`, QoS 1, not retained.
 - **Publisher** (`xp.sh award` / new `xp.sh tick`): write to local `xp.json`
   first (unchanged instant local feedback), then publish the same event to
@@ -45,7 +46,7 @@ total, only cosmetic history ordering.
   ledger and append a history entry tagged `source: remote:<machine>`. On
   every (re)connect, also flushes that machine's own outbox.
 - **Broker persistence**: `persistence true` +
-  `persistence_location /mosquitto/data/` added to the-broker-host's
+  `persistence_location /mosquitto/data/` added to the broker host's
   `mosquitto.conf` (the path is already bind-mounted) so durable client
   sessions and the QoS 1 in-flight queue survive a broker restart, not just
   a network blip.
@@ -118,16 +119,16 @@ immediately, uncoalesced.
 1. Build and test entirely on machine-a first (per explicit user instruction):
    updated `xp.sh` (+ `tick` subcommand), listener daemon script + launchd
    plist, `PostToolUse` hook wired into machine-a's `settings.json`, broker
-   persistence enabled on the-broker-host. Verify end-to-end: award/tick → MQTT →
+   persistence enabled on the broker host. Verify end-to-end: award/tick → MQTT →
    applied locally; kill/restore network to exercise outbox + dedup.
 2. Once verified on machine-a, roll the same files out via SSH: launchd agents
-   to machine-b and machine-c (both macOS, key-auth reachable as `ssh-user` /
-   password-auth for machine-c via the `machine-d Admin Password` 1Password
-   item), a systemd user service to machine-d/machine-d (Linux, key-auth reachable
-   as `ssh-user`). Each machine's `settings.json` is merged non-destructively
+   to machine-b and machine-c (both macOS, key-auth reachable as `<ssh-user>` /
+   password-auth for machine-c via a dedicated 1Password admin-password
+   item), a systemd user service to machine-d (Linux, key-auth reachable
+   as `<ssh-user>`). Each machine's `settings.json` is merged non-destructively
    (same pattern the existing `side-quest-setup` agent already uses),
    never overwritten wholesale.
-3. The-broker-host: only the `mosquitto.conf` persistence change — no CLI, no
+3. Broker host: only the `mosquitto.conf` persistence change — no CLI, no
    daemon, no statusline.
 
 ## Testing

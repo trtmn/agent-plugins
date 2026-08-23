@@ -384,21 +384,23 @@ def remove_from_outbox(path, event_id):
     os.replace(tmp, path)
 
 
-MQTT_BROKER_HOST = "<broker-host>.<tailnet>.ts.net"
 MQTT_TOPIC = "sidequest/xp/events"
 MQTT_PUBLISH_TIMEOUT = 3
 
 
 def publish_event(
     event,
-    host=MQTT_BROKER_HOST,
+    host=None,
     topic=MQTT_TOPIC,
     timeout=MQTT_PUBLISH_TIMEOUT,
     mosquitto_pub_cmd="mosquitto_pub",
 ):
     """Publish event to the MQTT broker. Returns True on success, False on
-    any failure (broker unreachable, timeout, binary missing) — never
-    raises, since a flaky broker must never crash the caller."""
+    any failure (broker unreachable, timeout, binary missing, or no host
+    configured) — never raises, since a flaky broker must never crash the
+    caller."""
+    if not host:
+        return False
     try:
         result = subprocess.run(
             [
@@ -427,7 +429,7 @@ MQTT_STATE_TOPIC = "sidequest/xp/state"
 def publish_state(
     ledger,
     machine,
-    host=MQTT_BROKER_HOST,
+    host=None,
     topic=MQTT_STATE_TOPIC,
     timeout=MQTT_PUBLISH_TIMEOUT,
     mosquitto_pub_cmd="mosquitto_pub",
@@ -438,6 +440,8 @@ def publish_state(
     consistent across machines. A retained message means any client that
     connects (including one joining sync for the first time) gets the
     last known total immediately, without waiting for the next event."""
+    if not host:
+        return False
     payload = {
         "machine": machine,
         "ts": _now_iso(),
@@ -546,7 +550,7 @@ def _mosquitto_pub_cmd():
 
 
 def _mqtt_host():
-    return os.environ.get("XP_MQTT_HOST", MQTT_BROKER_HOST)
+    return os.environ.get("XP_MQTT_HOST")
 
 
 def _publish_or_outbox(event):

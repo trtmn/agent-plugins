@@ -29,6 +29,7 @@ def _run(args, home, extra_env=None):
         **os.environ,
         "XP_HOME": str(home),
         "MOSQUITTO_PUB_CMD": str(home / "fake_mosquitto_pub"),
+        "XP_MQTT_HOST": "test-broker.invalid",
         **(extra_env or {}),
     }
     return subprocess.run(
@@ -86,7 +87,7 @@ def test_award_respects_xp_mqtt_host_override(tmp_path):
     assert result.returncode == 0, result.stderr
     calls = log.read_text().strip().splitlines()
     assert any("100.99.99.99" in c for c in calls)
-    assert not any("<broker-host>.<tailnet>.ts.net" in c for c in calls)
+    assert not any("test-broker.invalid" in c for c in calls)
 
 
 def test_award_also_publishes_a_retained_state_snapshot(tmp_path):

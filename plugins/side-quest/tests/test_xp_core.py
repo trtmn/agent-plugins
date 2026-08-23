@@ -452,31 +452,31 @@ def _write_fake_mosquitto_pub(tmp_path, exit_code):
 def test_publish_event_returns_true_on_success(tmp_path):
     fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=0)
     event = new_tick_event(machine="machine-a")
-    assert publish_event(event, mosquitto_pub_cmd=fake_bin) is True
+    assert publish_event(event, host="test-broker", mosquitto_pub_cmd=fake_bin) is True
 
 
 def test_publish_event_returns_false_on_failure(tmp_path):
     fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=1)
     event = new_tick_event(machine="machine-a")
-    assert publish_event(event, mosquitto_pub_cmd=fake_bin) is False
+    assert publish_event(event, host="test-broker", mosquitto_pub_cmd=fake_bin) is False
 
 
 def test_publish_event_returns_false_when_binary_missing(tmp_path):
     missing = str(tmp_path / "does-not-exist")
     event = new_tick_event(machine="machine-a")
-    assert publish_event(event, mosquitto_pub_cmd=missing) is False
+    assert publish_event(event, host="test-broker", mosquitto_pub_cmd=missing) is False
 
 
 def test_publish_state_returns_true_on_success(tmp_path):
     fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=0)
     ledger = _empty_ledger()
-    assert publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=fake_bin) is True
+    assert publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=fake_bin) is True
 
 
 def test_publish_state_returns_false_on_failure(tmp_path):
     fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=1)
     ledger = _empty_ledger()
-    assert publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=fake_bin) is False
+    assert publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=fake_bin) is False
 
 
 def test_publish_state_passes_the_retain_flag(tmp_path):
@@ -488,7 +488,7 @@ def test_publish_state_passes_the_retain_flag(tmp_path):
     spy.write_text(f'#!/bin/sh\necho "$@" >> "{spy_log}"\nexit 0\n')
     spy.chmod(0o755)
     ledger = _empty_ledger()
-    publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=str(spy))
+    publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=str(spy))
     argv = spy_log.read_text()
     assert " -r " in f" {argv} "
 
@@ -501,7 +501,7 @@ def test_publish_state_payload_includes_total_xp_and_machine(tmp_path):
     ledger = _empty_ledger()
     ledger["total_xp"] = 12345
     ledger["level"] = 9
-    publish_state(ledger, machine="machine-a", mosquitto_pub_cmd=str(spy))
+    publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=str(spy))
     argv = spy_log.read_text()
     assert "12345" in argv
     assert '"machine-a"' in argv
@@ -528,4 +528,4 @@ def test_publish_event_does_not_pass_flags_mosquitto_pub_rejects(tmp_path):
     )
     spy.chmod(0o755)
     event = new_tick_event(machine="machine-a")
-    assert publish_event(event, mosquitto_pub_cmd=str(spy)) is True
+    assert publish_event(event, host="test-broker", mosquitto_pub_cmd=str(spy)) is True
