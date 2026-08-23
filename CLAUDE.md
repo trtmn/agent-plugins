@@ -12,37 +12,9 @@ Install path:
 /plugin install <plugin-name>@agent-plugins
 ```
 
-## Plugin Directory Structure
+## Plugin Directory Structure and Conventions
 
-Each plugin lives under `plugins/`. **Folder name matches the plugin name** (`plugin.json` → `name`):
-
-```
-plugins/<plugin-name>/
-├── .claude-plugin/
-│   └── plugin.json               # Required — {name, version, description}
-├── CHANGELOG.md                  # Required — version history (Keep a Changelog format)
-├── skills/<plugin-name>/
-│   ├── SKILL.md                  # Canonical skill definition (YAML frontmatter + body)
-│   ├── scripts/                  # Optional executables invoked by the skill
-│   └── references/               # Optional reference docs loaded on-demand
-├── agents/                       # Optional subagent definitions (plugin root, NOT under skills/)
-├── commands/                     # Optional slash command definitions (plugin root)
-└── evals/                        # Optional manual test prompts (gitignored)
-```
-
-`agents/` and `commands/` live at the **plugin root**, not inside `skills/<name>/`. Only skill content lives under `skills/<name>/`.
-
-## Conventions
-
-- **SKILL.md is the contract.** YAML frontmatter must include `name`, `description`, and `allowed-tools`. The `name` must match the folder name and the `skills/<name>/` directory name.
-- **plugin.json is minimal.** Just `{name, version, description}` — description copied verbatim from SKILL.md frontmatter. Version follows SemVer (`MAJOR.MINOR.PATCH`).
-- **CHANGELOG.md is required.** Lives at the plugin root. Add a `## [x.y.z] — YYYY-MM-DD` entry when bumping the version. Patch = fix/tweak, Minor = new capability, Major = breaking change.
-- **Scripts run standalone.** Only their output enters Claude's context. Bash scripts use `set -e`, status to stderr, machine-readable JSON to stdout.
-- **References stay separate.** Large API docs and specs go in `references/` so they aren't loaded until the skill needs them.
-- **Agent definitions default to background.** Any subagent shipped under `agents/` must include `"ALWAYS launch this agent with run_in_background: true"` in its description, so callers don't block the main conversation.
-- **No shared build step.** Plugins are distributed as-is.
-- **No automated tests.** Evals in `evals/` are manual (invoke + verify) and gitignored.
-- **Absolute paths and identifiers are PII.** Never commit `/Users/<name>/` paths — use `~/`, `$HOME/`, or `$CLAUDE_PLUGIN_ROOT`. Don't hardcode personal hostnames, vault names, 1Password item UUIDs, or real email addresses in example output; use `example.com`, `octocat`, `jane@example.com`, `<vault>`, `<item>` placeholders.
+**See `AGENTS.md`** — it is the canonical source for the required plugin directory layout, `plugin.json`/`SKILL.md`/`CHANGELOG.md` conventions, the `$CLAUDE_PLUGIN_ROOT` path convention (and its exceptions), when a plugin needs a setup command, and the PII rule. Read it before creating or modifying any plugin.
 
 ## Existing Plugins
 
@@ -54,7 +26,7 @@ cowsay, font-extractor, home-assistant, homebrew-dev, imsg, jellyfin, mastodon-c
 
 ## Files to Know
 
-- `AGENTS.md` — AI agent guidance for creating and modifying plugins
+- `AGENTS.md` — canonical plugin directory structure and authoring conventions; read before creating or modifying any plugin
 - `.claude-plugin/marketplace.json` — marketplace manifest listing all plugins
 - `.gitignore` — excludes `**/.claude/settings.local.json`, `**/evals/`, workspace dirs, `.DS_Store`
 
