@@ -34,7 +34,9 @@ usage() {
 }
 
 # --- Translate the invocation into METHOD + PATH + BODY --------------------
-method="GET"; path=""; body=""
+# wants_body marks the raw post/put subcommands that may take a request body
+# (on stdin); shorthand POSTs like `scan` never read stdin.
+method="GET"; path=""; body=""; wants_body=0
 
 case "${1:-}" in
   ""|-h|--help|help)
@@ -52,8 +54,8 @@ case "${1:-}" in
     enc=$(printf '%s' "$term" | jq -sRr @uri)
     path="/Search/Hints?searchTerm=${enc}&limit=${limit}" ;;
   get|GET)      method="GET";    path="${2:-}" ;;
-  post|POST)    method="POST";   path="${2:-}"; body="${3:-}" ;;
-  put|PUT)      method="PUT";    path="${2:-}"; body="${3:-}" ;;
+  post|POST)    method="POST";   path="${2:-}"; body="${3:-}"; wants_body=1 ;;
+  put|PUT)      method="PUT";    path="${2:-}"; body="${3:-}"; wants_body=1 ;;
   delete|DELETE) method="DELETE"; path="${2:-}" ;;
   *)
     echo "Unknown command: $1" >&2
@@ -63,8 +65,8 @@ esac
 
 [[ -z "$path" ]] && { echo "Error: missing endpoint path." >&2; exit 1; }
 
-# A body piped on stdin overrides/serves the 3rd-arg body for post/put.
-if [[ ( "$method" == "POST" || "$method" == "PUT" ) && -z "$body" && ! -t 0 ]]; then
+# For raw post/put, accept a request body piped on stdin when none was given.
+if [[ "$wants_body" == 1 && -z "$body" && ! -t 0 ]]; then
   body="$(cat)"
 fi
 
@@ -94,10 +96,14 @@ EOF
 
   resp="$(curl "${args[@]}" "${base}${path}")" || { code=$?; echo "$resp" >&2; exit $code; }
 
-  # Pretty-print JSON when possible; otherwise emit raw (empty for 204).
-  if [[ -n "$resp" ]] && command -v jq >/dev/null 2>&1; then
+  # An empty body is a successful no-content response (e.g. 204 from scan and
+  # the playback commands) — report success rather than falling through to a
+  # failing test. Otherwise pretty-print JSON when jq is available.
+  if [[ -z "$resp" ]]; then
+    echo "OK (no content)" >&2
+  elif command -v jq >/dev/null 2>&1; then
     printf "%s" "$resp" | jq . 2>/dev/null || printf "%s\n" "$resp"
   else
-    [[ -n "$resp" ]] && printf "%s\n" "$resp"
+    printf "%s\n" "$resp"
   fi
 ' _ "$method" "$path" "$body"
