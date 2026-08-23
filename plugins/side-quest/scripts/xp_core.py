@@ -202,12 +202,45 @@ TICK_FLAVOR_TEMPLATES = [
     "gave {tool} one job, and it did nine others out of spite and love",
 ]
 
-DEFAULT_TOOL_FILLER = "the tools"
+DEFAULT_TOOL_FILLER = "the crew"
 
 
 def random_flavor(tool=None):
     template = random.choice(TICK_FLAVOR_TEMPLATES)
     return template.format(tool=tool or DEFAULT_TOOL_FILLER)
+
+
+# For turns where zero tools were called — pure conversation, jokes, opinions,
+# vibes. The old flavor here was a flat "handled 0 tool calls this turn",
+# which reads like an apology. It isn't one: no tools needed doesn't mean no
+# value delivered, so this pool matches the unhinged energy of the tick
+# flavors above instead of sounding like a null result.
+ZERO_TOOL_FLAVOR_TEMPLATES = [
+    "did the whole thing on vibes alone, no tools harmed",
+    "solved it with pure charisma and zero tool calls",
+    "answered from memory like a suspiciously confident houseguest",
+    "talked its way out of doing any actual work, and it worked",
+    "used its words, not its hands",
+    "flexed pure knowledge, no tools required",
+    "coasted in on freestyle and stuck the landing",
+    "delivered a TED talk instead of a tool call",
+    "ran the whole thing telepathically",
+    "hand-waved so hard it should count as a tool",
+    "improvised like a jazz musician with no instrument",
+    "phoned it in from the couch and still nailed it",
+    "did nothing except sound extremely sure of itself",
+    "won the argument before reaching for a single tool",
+    "brought a knife-free gunfight energy to this one",
+    "answered like it already knew, because it did",
+    "kept both hands in its pockets the entire time",
+    "let raw confidence do the heavy lifting",
+    "zero tools, zero hesitation, zero regrets",
+    "showed up empty-handed and left looking smug about it",
+]
+
+
+def random_zero_tool_flavor():
+    return random.choice(ZERO_TOOL_FLAVOR_TEMPLATES)
 
 
 def new_tick_event(machine, xp=DEFAULT_TICK_XP, source="hook", flavor=None, tool=None):
@@ -251,6 +284,10 @@ def count_hook_entries_since(history, boundary_ts):
 
 
 def new_response_event(machine, tool_count, source="stop-hook"):
+    if tool_count == 0:
+        flavor = random_zero_tool_flavor()
+    else:
+        flavor = random_flavor()
     return {
         "event_id": str(uuid.uuid4()),
         "machine": machine,
@@ -259,7 +296,7 @@ def new_response_event(machine, tool_count, source="stop-hook"):
         "xp": xp_for_tool_count(tool_count),
         "source": source,
         "tool_count": tool_count,
-        "flavor": f"handled {tool_count} tool call{'s' if tool_count != 1 else ''} this turn",
+        "flavor": flavor,
     }
 
 

@@ -14,87 +14,7 @@ allowed-tools: Agent, AskUserQuestion, Read, Glob, Grep, Bash
 
 ## First-time setup
 
-Run these steps once after installing the plugin (or after updating it). All paths use `$HOME` so they work for any user.
-
-### 1. Deploy `xp.sh` to its stable path
-
-The ambient-XP CLAUDE.md rule references `~/.claude/side-quest/xp.sh` directly, independent of the plugin cache path. Deploy it with:
-
-```bash
-mkdir -p "$HOME/.claude/side-quest"
-cp "${CLAUDE_PLUGIN_ROOT}/scripts/xp.sh" "$HOME/.claude/side-quest/xp.sh"
-chmod +x "$HOME/.claude/side-quest/xp.sh"
-```
-
-### 2. Deploy `statusline-command.sh`
-
-The statusline script renders the full Claude Code status bar (user@host, git branch, context usage, rate limits, and XP level). Deploy it with:
-
-```bash
-cp "${CLAUDE_PLUGIN_ROOT}/scripts/statusline-command.sh" "$HOME/.claude/statusline-command.sh"
-chmod +x "$HOME/.claude/statusline-command.sh"
-```
-
-### 3. Add the `statusLine` block to `~/.claude/settings.json`
-
-Merge this into the top-level object in `~/.claude/settings.json`:
-
-```json
-"statusLine": {
-  "type": "command",
-  "command": "bash ~/.claude/statusline-command.sh",
-  "refreshInterval": 1
-}
-```
-
-### 4. Add the Stop hook to `~/.claude/settings.json`
-
-This hook awards a CR 1 fallback XP entry after any session where no XP was recorded in the last 120 seconds (catches conversational sessions the ambient rule misses). Merge into the `hooks` object:
-
-```json
-"Stop": [
-  {
-    "hooks": [
-      {
-        "type": "command",
-        "command": "python3 -c \"\nimport json, sys\nfrom pathlib import Path\nfrom datetime import datetime, timezone\nf = Path.home() / '.claude/side-quest/xp.json'\nif f.exists():\n    h = json.loads(f.read_text()).get('history', [])\n    if h:\n        dt = datetime.fromisoformat(h[-1]['ts'])\n        if (datetime.now(timezone.utc) - dt).total_seconds() < 120:\n            sys.exit(0)\nsys.exit(1)\n\" && exit 0; ~/.claude/side-quest/xp.sh award 1 success --source stop-hook 'turn completed' 2>/dev/null || true",
-        "async": true,
-        "timeout": 15
-      }
-    ]
-  }
-]
-```
-
-### 5. Add the ambient XP rule to `~/.claude/CLAUDE.md`
-
-This rule instructs Claude to silently award XP after completing any user-requested task. Add this block to your global `~/.claude/CLAUDE.md`:
-
-```markdown
-## Ambient XP
-
-After completing any task the user asked for, silently award XP by running this via Bash — **no mention in the response text**:
-
-```bash
-~/.claude/side-quest/xp.sh award <cr> <outcome> "<one-line task summary>" >/dev/null 2>&1 || true
-```
-
-**CR rubric:**
-
-| CR | Difficulty | Examples |
-|----|-----------|---------|
-| 1  | Trivial   | Lookups, renames, one-liner explanations with no tool use |
-| 2  | Simple    | Single-file edits, config tweaks, quick fixes |
-| 3  | Standard  | Multi-step tasks, multi-file changes, research with findings |
-| 4  | Complex   | Cross-cutting features, refactors spanning many files |
-| 5  | Boss fight | Architectural changes, large migrations, plugin builds |
-
-**Outcome:** `success` (completed as requested), `partial` (incomplete or worked around), `wipe` (task failed entirely).
-
-**Skip** for pure conversational turns where no tools were used and no action was taken (questions, explanations, clarifications).
-
-If the script is missing or fails, skip silently — never surface the error to the user.
-```
+Run `/side-quest:setup` once after installing the plugin (or after updating it) — it delegates to the `side-quest-setup` agent, the single source of truth for what gets installed, and is idempotent — safe to re-run after every plugin update. It deploys `xp.sh`, `xp_core.py`, `xp-sync-daemon.sh`, and `statusline-command.sh` to their stable paths; installs the cross-machine MQTT sync daemon; merges the `statusLine` block, the `Stop` hook, and the `PostToolUse` tick hook into `~/.claude/settings.json`; and asks for approval before adding the ambient XP rule to `~/.claude/CLAUDE.md`. See `agents/side-quest-setup.md` for exactly what each hook does and why.
 
 The ledger at `~/.claude/side-quest/xp.json` is shared between the stable copy and the plugin script.
 
@@ -110,7 +30,7 @@ test -f "$HOME/.claude/side-quest/xp.sh"
 
 If the file is **missing**, stop and tell the user:
 
-> "⚔️ The side-quest ledger isn't set up on this machine yet. Run the `side-quest-setup` agent first: `launch side-quest-setup` — it deploys the XP scripts, configures the statusline, and walks you through the rest. (~2 minutes)"
+> "⚔️ The side-quest ledger isn't set up on this machine yet. Run `/side-quest:setup` first — it deploys the XP scripts, configures the statusline, and walks you through the rest. (~2 minutes)"
 
 Do not proceed with the quest until setup is confirmed.
 
@@ -168,6 +88,16 @@ Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends
 > **Plain English:** The refactor is done — 3 files changed,
 > tests pass. Summary of changes below.
 ```
+
+## Ambient and mechanical XP
+
+Beyond `/side-quest` itself, three independent mechanisms feed the same ledger:
+
+- **Ambient XP** (model-issued, CLAUDE.md rule): after completing any user-requested task, Claude runs `~/.claude/side-quest/xp.sh award <cr> <outcome> "<summary>"` — the only path that grants CR-based XP, since judging task difficulty needs the model's judgment. Skipped for pure-conversation turns with no tool use.
+- **Tick** (mechanical, `PostToolUse` hook, fires on every tool call): `xp.sh tick "$tool"` grants a small flat XP amount and records a randomized Mad-Libs-style flavor line naming the actual tool used (`random_flavor` in `xp_core.py`), with a generic "the crew" filler when no tool name is available. Zero token cost — the hook runs entirely inside the harness.
+- **Respond** (mechanical, `Stop` hook, fires at the end of every turn): `xp.sh respond` grants a difficulty-scaled floor reward (minimum 10 XP even for a zero-tool-call turn, scaling up with this turn's tick count) so no turn goes unrewarded. It self-debounces — a no-op if an `ambient`- or `stop-hook`-sourced award already landed in the last 10s, so it never double-counts a turn the model's own Ambient XP call already covered. For a turn with zero tool calls it picks a flavor line from a separate pool tuned for pure-conversation turns (`random_zero_tool_flavor`) rather than reusing the tool-naming flavors.
+
+`quests_completed` only increments on `award` (from `/side-quest` or the ambient rule) — `tick` and `respond` never bump it.
 
 ## Status-bar integration
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.3.0] — 2026-08-23
+Sync the plugin's shipped scripts and docs with what's actually deployed.
+
+- `respond` (the `Stop` hook's mechanical floor reward) now picks its
+  flavor line from a dedicated pool for zero-tool-call turns
+  (`random_zero_tool_flavor`) instead of a flat "handled 0 tool calls
+  this turn" — it reads like an apology for a turn that may well have
+  delivered real value with no tools needed. Turns with tool calls still
+  use the existing tick-flavor pool.
+- `DEFAULT_TOOL_FILLER` (the generic filler used when a tick has no tool
+  name) changed from "the tools" to "the crew".
+- No more hardcoded MQTT broker hostname anywhere in the plugin —
+  `xp_core.py`/`xp-sync-daemon.sh` now require `XP_MQTT_HOST` to be set
+  explicitly rather than falling back to a baked-in default, so the
+  plugin ships with no personal infra details.
+- `SKILL.md`'s "First-time setup" section had drifted from reality (a
+  stale inline Stop-hook script, no mention of the `PostToolUse` tick
+  hook at all) — replaced with a pointer to the `side-quest-setup` agent,
+  the actual source of truth, plus a new "Ambient and mechanical XP"
+  section documenting what the `award`/`tick`/`respond` paths each do.
+- New `/side-quest:setup` slash command wrapping the `side-quest-setup`
+  agent, matching the discoverable `/self-improvement:setup` pattern
+  instead of requiring users to know to invoke the agent by name.
+
 ## [2.2.0] — 2026-08-07
 Fresh-install bootstrap: new machines join the shared pool instead of
 starting at zero.

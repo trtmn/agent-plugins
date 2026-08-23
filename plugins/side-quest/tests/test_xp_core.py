@@ -1,5 +1,6 @@
 from xp_core import (
     TICK_FLAVOR_TEMPLATES,
+    ZERO_TOOL_FLAVOR_TEMPLATES,
     append_outbox,
     apply_bootstrap,
     apply_event,
@@ -15,6 +16,7 @@ from xp_core import (
     publish_event,
     publish_state,
     random_flavor,
+    random_zero_tool_flavor,
     read_outbox,
     record_applied,
     remove_from_outbox,
@@ -54,7 +56,9 @@ def test_record_applied_caps_ring_buffer_dropping_oldest():
 
 
 def test_new_award_event_uses_xp_by_cr_table_for_success():
-    event = new_award_event(machine="machine-a", cr=3, outcome="success", quest="fix bug")
+    event = new_award_event(
+        machine="machine-a", cr=3, outcome="success", quest="fix bug"
+    )
     assert event["xp"] == 700
     assert event["kind"] == "award"
     assert event["machine"] == "machine-a"
@@ -66,7 +70,9 @@ def test_new_award_event_uses_xp_by_cr_table_for_success():
 
 
 def test_new_award_event_halves_xp_for_partial():
-    event = new_award_event(machine="machine-a", cr=3, outcome="partial", quest="fix bug")
+    event = new_award_event(
+        machine="machine-a", cr=3, outcome="partial", quest="fix bug"
+    )
     assert event["xp"] == 350
 
 
@@ -99,7 +105,9 @@ def test_new_tick_event_flavor_varies_by_template_but_always_names_the_tool():
     # every template must actually name the real tool -- that's the part
     # the user asked for explicitly: humor is fine, but it must still say
     # why the XP was awarded.
-    seen = {new_tick_event(machine="machine-a", tool="Bash")["flavor"] for _ in range(50)}
+    seen = {
+        new_tick_event(machine="machine-a", tool="Bash")["flavor"] for _ in range(50)
+    }
     assert len(seen) > 1  # got some actual variety, not always the same template
     assert all("Bash" in flavor for flavor in seen)
 
@@ -168,6 +176,25 @@ def test_new_response_event_meets_the_floor_with_no_tool_calls():
 def test_new_response_event_scales_with_tool_count():
     event = new_response_event(machine="machine-a", tool_count=15)
     assert event["xp"] > 10
+
+
+def test_new_response_event_uses_zero_tool_flavor_pool_for_no_tool_calls():
+    event = new_response_event(machine="machine-a", tool_count=0)
+    assert event["flavor"] in ZERO_TOOL_FLAVOR_TEMPLATES
+
+
+def test_new_response_event_uses_tick_flavor_pool_when_tools_were_used():
+    event = new_response_event(machine="machine-a", tool_count=3)
+    possible = {t.format(tool="the crew") for t in TICK_FLAVOR_TEMPLATES}
+    assert event["flavor"] in possible
+
+
+def test_random_zero_tool_flavor_returns_a_template_from_the_pool():
+    assert random_zero_tool_flavor() in ZERO_TOOL_FLAVOR_TEMPLATES
+
+
+def test_zero_tool_flavor_templates_are_all_unique():
+    assert len(ZERO_TOOL_FLAVOR_TEMPLATES) == len(set(ZERO_TOOL_FLAVOR_TEMPLATES))
 
 
 def test_should_bootstrap_from_state_true_for_fresh_ledger_with_higher_state():
@@ -470,13 +497,23 @@ def test_publish_event_returns_false_when_binary_missing(tmp_path):
 def test_publish_state_returns_true_on_success(tmp_path):
     fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=0)
     ledger = _empty_ledger()
-    assert publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=fake_bin) is True
+    assert (
+        publish_state(
+            ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=fake_bin
+        )
+        is True
+    )
 
 
 def test_publish_state_returns_false_on_failure(tmp_path):
     fake_bin = _write_fake_mosquitto_pub(tmp_path, exit_code=1)
     ledger = _empty_ledger()
-    assert publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=fake_bin) is False
+    assert (
+        publish_state(
+            ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=fake_bin
+        )
+        is False
+    )
 
 
 def test_publish_state_passes_the_retain_flag(tmp_path):
@@ -488,7 +525,9 @@ def test_publish_state_passes_the_retain_flag(tmp_path):
     spy.write_text(f'#!/bin/sh\necho "$@" >> "{spy_log}"\nexit 0\n')
     spy.chmod(0o755)
     ledger = _empty_ledger()
-    publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=str(spy))
+    publish_state(
+        ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=str(spy)
+    )
     argv = spy_log.read_text()
     assert " -r " in f" {argv} "
 
@@ -501,7 +540,9 @@ def test_publish_state_payload_includes_total_xp_and_machine(tmp_path):
     ledger = _empty_ledger()
     ledger["total_xp"] = 12345
     ledger["level"] = 9
-    publish_state(ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=str(spy))
+    publish_state(
+        ledger, machine="machine-a", host="test-broker", mosquitto_pub_cmd=str(spy)
+    )
     argv = spy_log.read_text()
     assert "12345" in argv
     assert '"machine-a"' in argv
