@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.4.1] — 2026-08-26
+Fix a shell-parser bug that stopped the sync daemon from starting on macOS.
+
+- `xp-sync-daemon.sh` line 19 had an apostrophe (`broker's`) inside a
+  `${XP_MQTT_HOST:?...}` expansion inside a double-quoted string. Bash
+  3.2 — which macOS ships as `/bin/bash`, and which the launchd plist
+  uses to run the daemon — mis-parses this as an unterminated quote and
+  aborts with `unexpected EOF`, so the daemon never started (`zsh -n`
+  parses it fine, which is why it slipped through). Reworded the message
+  to drop the apostrophe; `/bin/bash -n` now passes.
+
 ## [2.4.0] — 2026-08-26
 Rescale the XP classifier — awards were too small and never grew with progress.
 

@@ -1,5 +1,5 @@
 {
   "name": "side-quest",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "Launch background subagent(s) to handle a task as a side quest while the main conversation stays free. Use when the user types /side-quest or asks to run a task as a side quest. Rates the task's difficulty (Challenge Rating) to pick the model — haiku for trivial quests, sonnet for standard quests, opus for boss fights — honors a user-named model override, splits decomposable tasks across a party of parallel agents, and reports launch and completion in Dungeons & Dragons style emoji and flavor, always paired with a plain-English summary. Awards D&D 5e XP by Challenge Rating on completion and keeps a persistent XP/level ledger at ~/.claude/side-quest/xp.json. Also fires small per-tool-call XP ticks via a PostToolUse hook (zero token cost, with a humorous Mad-Libs-style reason naming the actual tool used), and syncs the whole XP ledger across every machine you run Claude Code on in real time over MQTT — award or tick on one machine, see it everywhere, with an offline outbox queue so nothing is lost when the broker's unreachable."
 }
