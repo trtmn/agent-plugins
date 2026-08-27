@@ -282,17 +282,6 @@ def test_reconcile_catches_a_drifted_ledger_up_to_shared_state(tmp_path):
     )
 
 
-def test_reset_ledger_forces_total_and_bumps_epoch(tmp_path):
-    _run(["award", "1", "success", "some xp"], home=tmp_path)
-    result = _run(["reset-ledger", "12345"], home=tmp_path)
-    out = json.loads(result.stdout)
-    assert out["total_xp"] == 12345
-    assert out["epoch"] == 1
-    ledger = json.loads((tmp_path / "xp.json").read_text())
-    assert ledger["total_xp"] == 12345
-    assert ledger["epoch"] == 1
-
-
 def test_respond_uses_the_transcript_heuristic_when_given_one(tmp_path):
     transcript = tmp_path / "t.jsonl"
     rows = [
@@ -327,3 +316,48 @@ def test_respond_uses_the_transcript_heuristic_when_given_one(tmp_path):
     assert entry["kind"] == "response"
     assert entry["cr"] == 5  # 9 distinct files edited
     assert entry["xp"] == 18000  # CR5 base, level 1, no scaling
+
+
+def test_reset_ledger_refuses_without_yes(tmp_path):
+    _run(["award", "1", "success", "some xp"], home=tmp_path)
+    before = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+    result = _run(["reset-ledger", "12345"], home=tmp_path)
+    assert result.returncode == 1
+    assert "yes" in result.stderr.lower()
+    after = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+    assert after == before  # unchanged — it was a dry run
+
+
+def test_reset_ledger_with_yes_forces_total_and_publishes_a_reset_event(tmp_path):
+    log = _write_spy_pub(tmp_path)
+    _run(["award", "1", "success", "some xp"], home=tmp_path)
+    result = _run(["reset-ledger", "500", "--yes"], home=tmp_path)
+    out = json.loads(result.stdout)
+    assert out["total_xp"] == 500
+    assert out["epoch"] == 1
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    assert ledger["total_xp"] == 500
+    assert ledger["epoch"] == 1
+    assert ledger["history"][-1]["kind"] == "reset"
+    calls = log.read_text().splitlines()
+    assert any("sidequest/xp/events" in c for c in calls)  # reset event on the stream
+    assert any("sidequest/xp/state" in c for c in calls)  # retained snapshot too
+
+
+def test_remote_reset_event_forces_this_machine_down(tmp_path):
+    _run(["award", "3", "success", "earned a lot"], home=tmp_path)
+    assert json.loads((tmp_path / "xp.json").read_text())["total_xp"] > 500
+    event = {
+        "event_id": "reset-remote-1",
+        "machine": "other-box",
+        "ts": "2026-08-27T00:00:00+00:00",
+        "kind": "reset",
+        "xp": 0,
+        "total_xp": 500,
+        "epoch": 1,
+        "source": "operator",
+    }
+    _run(["apply-remote", json.dumps(event)], home=tmp_path)
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    assert ledger["total_xp"] == 500
+    assert ledger["epoch"] == 1

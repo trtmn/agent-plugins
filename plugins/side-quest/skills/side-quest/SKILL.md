@@ -107,7 +107,7 @@ The ledger syncs over MQTT (`sidequest/xp/{events,state}`) — every award/tick/
 
 - **Self-echo guard**: the broker echoes a machine's own publishes back to its subscriber; `apply-remote` drops any event whose `machine` is us (already applied locally — re-applying only risks a double-count once the id ages out of the 4,000-entry dedup ring).
 - **Reconcile on connect**: the event stream has no replay for a machine that was offline when its broker session lapsed, so totals drift and never re-converge. On every (re)connect the daemon runs `xp.sh reconcile <retained-state>` — XP is monotonic, so catching up to a higher shared total is always safe.
-- **`xp.sh reset-ledger <total>`**: operator override. Forces this machine's total and bumps a shared `epoch`; every other machine adopts it (up *or* down) on its next reconcile. Use it to undo an inflation bug fleet-wide.
+- **`/side-quest:reset`** (or `xp.sh reset-ledger <total> --yes`): operator override. Sets the total and bumps a shared `epoch`, then publishes both a `reset` event (online machines adopt it within seconds) and a retained state snapshot (offline/new machines adopt it on next sync). Every machine takes the new total, up *or* down — use it to undo an inflation bug fleet-wide. Destructive and pool-wide, so the CLI refuses without `--yes` and the `/side-quest:reset` command always confirms with the user first.
 
 ## Status-bar integration
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.6.0] — 2026-08-27
+`/side-quest:reset` command, and make `reset-ledger` propagate immediately
+and require confirmation.
+
+- **New `/side-quest:reset` command** (`commands/reset.md`) — wraps
+  `xp.sh reset-ledger`. It always shows the current total + target and
+  gets an explicit yes from the user before running.
+- **`reset-ledger` now requires `--yes`.** Without it, the command prints
+  a pool-wide-impact warning and exits 1 without changing anything (a
+  dry run). *Behaviour change from 2.5.0, where it acted immediately.*
+- **`reset` is now a real synced event kind.** `reset-ledger` publishes a
+  `reset` event on `sidequest/xp/events` (so online machines adopt the
+  new total within seconds via their live subscription) in addition to
+  the retained `sidequest/xp/state` snapshot (so offline/new machines
+  adopt it on next sync). `apply_event` handles `kind: "reset"` via
+  `_apply_reset_event`: adopt the carried total, up OR down, only when
+  the event's `epoch` is newer than the local one; idempotent on replay
+  and a no-op for a stale/equal epoch. Previously `reset-ledger` only
+  updated retained state, so a machine that stayed connected wouldn't
+  pick up the reset until it happened to reconnect.
+
 ## [2.5.0] — 2026-08-27
 Transcript-heuristic Challenge Rating for `respond`, and stop the
 cross-machine ledger from inflating and drifting.

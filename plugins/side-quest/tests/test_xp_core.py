@@ -16,6 +16,7 @@ from xp_core import (
     level_for,
     load_ledger,
     new_award_event,
+    new_reset_event,
     new_response_event,
     new_tick_event,
     next_level_at,
@@ -788,3 +789,54 @@ def test_reconcile_noop_on_empty_state():
     ledger = _empty_ledger()
     ledger["total_xp"] = 5
     assert reconcile_with_state(ledger, None, "m") is False
+
+
+# --- reset events ------------------------------------------------------
+
+
+def test_new_reset_event_shape():
+    ev = new_reset_event("m", total_xp=1000, epoch=3)
+    assert ev["kind"] == "reset"
+    assert ev["total_xp"] == 1000
+    assert ev["epoch"] == 3
+    assert ev["xp"] == 0
+    assert ev["event_id"]
+
+
+def test_apply_reset_event_forces_total_down_on_newer_epoch():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 5_000_000
+    ledger["epoch"] = 0
+    changed = apply_event(ledger, new_reset_event("m", 100_000, epoch=1))
+    assert changed is True
+    assert ledger["total_xp"] == 100_000
+    assert ledger["epoch"] == 1
+    assert ledger["level"] == level_for(100_000)
+    assert ledger["history"][-1]["kind"] == "reset"
+
+
+def test_apply_reset_event_forces_total_up_on_newer_epoch():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 10
+    changed = apply_event(ledger, new_reset_event("m", 999_999, epoch=1))
+    assert changed is True
+    assert ledger["total_xp"] == 999_999
+
+
+def test_apply_reset_event_ignores_stale_or_equal_epoch():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 400
+    ledger["epoch"] = 2
+    assert apply_event(ledger, new_reset_event("m", 1, epoch=2)) is False
+    assert apply_event(ledger, new_reset_event("m", 1, epoch=1)) is False
+    assert ledger["total_xp"] == 400
+    assert ledger["epoch"] == 2
+
+
+def test_apply_reset_event_is_idempotent_on_replay():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 5000
+    ev = new_reset_event("m", 200, epoch=1)
+    assert apply_event(ledger, ev) is True
+    assert apply_event(ledger, ev) is False  # dedup
+    assert ledger["total_xp"] == 200

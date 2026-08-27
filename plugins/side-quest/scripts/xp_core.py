@@ -513,11 +513,52 @@ def new_response_event(machine, tool_count, source="stop-hook", level=1, cr=None
 HISTORY_CAP = 100
 
 
+def new_reset_event(machine, total_xp, epoch, source="operator"):
+    """A pool-wide authoritative reset. Carries the target total and the
+    new epoch; every machine adopts it (up OR down) when the epoch is
+    newer than its own — see _apply_reset_event."""
+    return {
+        "event_id": str(uuid.uuid4()),
+        "machine": machine,
+        "ts": _now_iso(),
+        "kind": "reset",
+        "xp": 0,
+        "total_xp": total_xp,
+        "epoch": epoch,
+        "source": source,
+        "flavor": f"reset the shared pool to {total_xp:,} XP (epoch {epoch})",
+    }
+
+
+def _apply_reset_event(ledger, event, history_cap):
+    """A reset wins in either direction, gated on epoch: adopt its total
+    only when its epoch is newer than ours. A replayed or stale-epoch
+    reset is marked seen and otherwise ignored."""
+    record_applied(ledger, event["event_id"])
+    if event.get("epoch", 0) <= ledger.get("epoch", 0):
+        return False
+    total = event["total_xp"]
+    ledger["epoch"] = event["epoch"]
+    ledger["total_xp"] = total
+    ledger["level"] = level_for(total)
+    ledger["next_level_at"] = next_level_at(total)
+    entry = dict(event)
+    entry["leveled_up"] = False
+    entry["new_level"] = ledger["level"]
+    history = ledger.setdefault("history", [])
+    history.append(entry)
+    del history[:-history_cap]
+    return True
+
+
 def apply_event(ledger, event, history_cap=HISTORY_CAP):
-    """Apply an award/tick event to ledger in place. Returns False (no-op)
-    if event_id was already applied, True if it was newly applied."""
+    """Apply an award/tick/reset event to ledger in place. Returns False
+    (no-op) if event_id was already applied, True if it was newly applied."""
     if is_applied(ledger, event["event_id"]):
         return False
+
+    if event.get("kind") == "reset":
+        return _apply_reset_event(ledger, event, history_cap)
 
     old_level = level_for(ledger["total_xp"])
     ledger["total_xp"] += event["xp"]
@@ -1044,34 +1085,42 @@ def cmd_reconcile(argv):
 
 
 def cmd_reset_ledger(argv):
-    """Operator override: force this machine's total to <n>, bump the
-    shared epoch, and publish it retained. Every other machine adopts it
-    (up OR down) on its next reconcile. Use to undo an inflation bug.
+    """Operator override: force the SHARED total to <n> and bump the epoch.
+    Publishes a reset event (online machines adopt it at once) and a
+    retained state snapshot (offline/new machines adopt it on next sync).
+    Every machine on the pool takes the new total, up OR down. Use to undo
+    an inflation bug. Requires --yes since it is destructive and pool-wide.
 
-    usage: xp.sh reset-ledger <total_xp>"""
-    if not argv:
-        print("usage: xp.sh reset-ledger <total_xp>", file=sys.stderr)
+    usage: xp.sh reset-ledger <total_xp> [--yes]"""
+    args = [a for a in argv if a not in ("--yes", "-y")]
+    confirmed = len(args) != len(argv)
+    if not args:
+        print("usage: xp.sh reset-ledger <total_xp> [--yes]", file=sys.stderr)
         sys.exit(2)
-    total = int(argv[0])
+    total = int(args[0])
     ledger = load_ledger(_ledger_path())
-    ledger["epoch"] = ledger.get("epoch", 0) + 1
-    ledger["total_xp"] = total
-    ledger["level"] = level_for(total)
-    ledger["next_level_at"] = next_level_at(total)
-    ledger.setdefault("history", []).append(
-        {
-            "event_id": str(uuid.uuid4()),
-            "machine": _machine_name(),
-            "ts": _now_iso(),
-            "kind": "reconcile",
-            "xp": 0,
-            "source": "reconcile",
-            "flavor": f"operator reset to {total:,} XP (epoch {ledger['epoch']})",
-            "leveled_up": False,
-            "new_level": ledger["level"],
-        }
-    )
+    new_epoch = ledger.get("epoch", 0) + 1
+
+    if not confirmed:
+        current = ledger.get("total_xp", 0)
+        print(
+            f"reset-ledger will set the SHARED total to {total:,} XP "
+            f"(epoch {new_epoch}).\n\n"
+            "This is pool-wide and cannot be undone from the ledger. It publishes "
+            "a reset event plus a retained state snapshot, so EVERY machine "
+            "syncing on this MQTT pool adopts the new total — up OR down — "
+            "immediately if online, on reconnect otherwise. There is no "
+            "per-machine opt-out.\n\n"
+            f"This machine's current total: {current:,} XP.\n\n"
+            "Re-run with --yes to proceed.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    event = new_reset_event(_machine_name(), total, new_epoch)
+    apply_event(ledger, event)
     save_ledger(_ledger_path(), ledger)
+    _publish_or_outbox(event)
     _publish_state_best_effort(ledger)
     print(
         json.dumps(
