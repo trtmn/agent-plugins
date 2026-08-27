@@ -1,4 +1,5 @@
 from xp_core import (
+    LEVEL_AWARD_GROWTH,
     TICK_FLAVOR_TEMPLATES,
     ZERO_TOOL_FLAVOR_TEMPLATES,
     append_outbox,
@@ -59,7 +60,7 @@ def test_new_award_event_uses_xp_by_cr_table_for_success():
     event = new_award_event(
         machine="machine-a", cr=3, outcome="success", quest="fix bug"
     )
-    assert event["xp"] == 700
+    assert event["xp"] == 7000
     assert event["kind"] == "award"
     assert event["machine"] == "machine-a"
     assert event["cr"] == 3
@@ -73,12 +74,26 @@ def test_new_award_event_halves_xp_for_partial():
     event = new_award_event(
         machine="machine-a", cr=3, outcome="partial", quest="fix bug"
     )
-    assert event["xp"] == 350
+    assert event["xp"] == 3500
 
 
 def test_new_award_event_zero_xp_for_wipe():
     event = new_award_event(machine="machine-a", cr=3, outcome="wipe", quest="fix bug")
     assert event["xp"] == 0
+
+
+def test_new_award_event_scales_up_with_level():
+    lvl1 = new_award_event(machine="m", cr=3, outcome="success", quest="x", level=1)
+    lvl10 = new_award_event(machine="m", cr=3, outcome="success", quest="x", level=10)
+    assert lvl1["xp"] == 7000
+    # 7000 * 1.04**9 ≈ 9962
+    assert lvl10["xp"] == round(7000 * 1.04**9)
+    assert lvl10["xp"] > lvl1["xp"]
+
+
+def test_new_award_event_level_growth_trails_threshold_growth():
+    # awards grow at 1.04/level, thresholds at 1.05 — awards must lag
+    assert LEVEL_AWARD_GROWTH < 1.05
 
 
 def test_new_award_event_ids_are_unique():
@@ -133,12 +148,12 @@ def test_random_flavor_templates_all_contain_a_tool_placeholder():
 
 
 def test_xp_for_tool_count_gives_at_least_the_floor_for_zero_tools():
-    assert xp_for_tool_count(0) == 10
+    assert xp_for_tool_count(0) == 100
 
 
 def test_xp_for_tool_count_never_goes_below_the_floor():
     for n in range(100):
-        assert xp_for_tool_count(n) >= 10
+        assert xp_for_tool_count(n) >= 100
 
 
 def test_xp_for_tool_count_increases_with_more_tool_calls():
@@ -168,14 +183,22 @@ def test_count_hook_entries_since_counts_everything_when_no_boundary():
 
 def test_new_response_event_meets_the_floor_with_no_tool_calls():
     event = new_response_event(machine="machine-a", tool_count=0)
-    assert event["xp"] == 10
+    assert event["xp"] == 100
     assert event["kind"] == "response"
     assert event["source"] == "stop-hook"
 
 
 def test_new_response_event_scales_with_tool_count():
     event = new_response_event(machine="machine-a", tool_count=15)
-    assert event["xp"] > 10
+    assert event["xp"] > 100
+
+
+def test_new_response_event_scales_up_with_level():
+    lvl1 = new_response_event(machine="m", tool_count=0, level=1)
+    lvl5 = new_response_event(machine="m", tool_count=0, level=5)
+    assert lvl1["xp"] == 100
+    assert lvl5["xp"] == round(100 * LEVEL_AWARD_GROWTH**4)
+    assert lvl5["xp"] > lvl1["xp"]
 
 
 def test_new_response_event_uses_zero_tool_flavor_pool_for_no_tool_calls():
@@ -286,7 +309,7 @@ def test_apply_event_adds_xp_to_total():
     event = new_award_event(machine="machine-a", cr=1, outcome="success", quest="x")
     applied = apply_event(ledger, event)
     assert applied is True
-    assert ledger["total_xp"] == 200
+    assert ledger["total_xp"] == 2000
 
 
 def test_apply_event_is_idempotent_for_duplicate_event_id():
@@ -295,7 +318,7 @@ def test_apply_event_is_idempotent_for_duplicate_event_id():
     apply_event(ledger, event)
     applied_again = apply_event(ledger, event)
     assert applied_again is False
-    assert ledger["total_xp"] == 200
+    assert ledger["total_xp"] == 2000
 
 
 def test_apply_event_increments_quests_completed_for_award_success():
@@ -328,7 +351,7 @@ def test_apply_event_appends_history_entry_with_machine_and_event_id():
     entry = ledger["history"][0]
     assert entry["event_id"] == event["event_id"]
     assert entry["machine"] == "machine-a"
-    assert entry["xp"] == 200
+    assert entry["xp"] == 2000
 
 
 def test_apply_event_marks_event_id_as_applied():
@@ -340,8 +363,8 @@ def test_apply_event_marks_event_id_as_applied():
 
 def test_apply_event_detects_level_up():
     ledger = _empty_ledger()
-    # CR 5 success = 1800 XP, well past the 1000 XP level-2 threshold
-    event = new_award_event(machine="machine-a", cr=5, outcome="success", quest="x")
+    # CR 1 success = 2000 XP, past the 1000 XP level-2 threshold
+    event = new_award_event(machine="machine-a", cr=1, outcome="success", quest="x")
     apply_event(ledger, event)
     assert ledger["level"] == 2
     assert ledger["history"][0]["leveled_up"] is True
@@ -349,7 +372,7 @@ def test_apply_event_detects_level_up():
 
 def test_apply_event_no_level_up_when_still_under_threshold():
     ledger = _empty_ledger()
-    event = new_award_event(machine="machine-a", cr=1, outcome="success", quest="x")
+    event = new_tick_event(machine="machine-a")  # 10 XP, well under 1000
     apply_event(ledger, event)
     assert ledger["level"] == 1
     assert ledger["history"][0]["leveled_up"] is False
@@ -465,7 +488,7 @@ def test_save_then_load_ledger_roundtrips(tmp_path):
     apply_event(ledger, event)
     save_ledger(path, ledger)
     reloaded = load_ledger(path)
-    assert reloaded["total_xp"] == 200
+    assert reloaded["total_xp"] == 2000
     assert reloaded["history"][0]["event_id"] == event["event_id"]
 
 

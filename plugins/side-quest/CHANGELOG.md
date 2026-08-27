@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.4.0] — 2026-08-26
+Rescale the XP classifier — awards were too small and never grew with progress.
+
+- **~10× bigger base awards.** The `respond` floor tiers (the mechanical
+  tool-count classifier — this is the "10 XP" simple turns were earning)
+  go 10/20/40/80/150/300 → 100/200/400/800/1500/3000. The CR award table
+  (`XP_BY_CR`) is multiplied by 10: CR 1 200 → 2,000, CR 5 1,800 →
+  18,000, CR 10 5,900 → 59,000.
+- **Awards now scale with level.** Every base reward (CR table + response
+  floor) is multiplied by `LEVEL_AWARD_GROWTH ** (level − 1)` with
+  `LEVEL_AWARD_GROWTH = 1.04` — one percentage point below the
+  level-threshold growth (`1.05` in `_build_thresholds`), so each level
+  takes ~1% more turns to clear than the one before it. `new_award_event`
+  and `new_response_event` take a new `level=` arg; the CLI (`cmd_award`,
+  `cmd_respond`) passes the ledger's current level.
+- Per-tool tick XP (`DEFAULT_TICK_XP`) is unchanged at 10.
+
+## [2.3.1] — 2026-08-23
+Fix a portability gap that broke `/side-quest:setup` on a fresh machine.
+
+- `xp-sync-daemon.sh` hard-requires `XP_MQTT_HOST` and exits immediately
+  without it, but neither the launchd plist nor the systemd service
+  template ever supplied one, and the setup agent never asked — so a
+  fresh install would launch the daemon straight into a silent
+  launchd/systemd crash-loop (respawn, fail, respawn, forever).
+- `side-quest-setup` now asks (via `AskUserQuestion`) whether to wire up
+  cross-machine MQTT sync before installing the daemon; a "no" skips
+  daemon install entirely (XP stays fully functional, local-only) and a
+  "yes" bakes the given hostname into both templates' new
+  `XP_MQTT_HOST` env var and into the `award`/`tick`/`respond` hook
+  commands in `settings.json` (hook subprocesses don't inherit the
+  daemon's environment, so the CLI path needs it set independently).
+  Idempotent — re-running reuses an already-configured broker host
+  instead of re-asking.
+
 ## [2.3.0] — 2026-08-23
 Sync the plugin's shipped scripts and docs with what's actually deployed.
 
