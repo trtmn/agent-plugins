@@ -95,9 +95,19 @@ Beyond `/side-quest` itself, three independent mechanisms feed the same ledger:
 
 - **Ambient XP** (model-issued, CLAUDE.md rule): after completing any user-requested task, Claude runs `~/.claude/side-quest/xp.sh award <cr> <outcome> "<summary>"` — the only path that grants CR-based XP, since judging task difficulty needs the model's judgment. Skipped for pure-conversation turns with no tool use.
 - **Tick** (mechanical, `PostToolUse` hook, fires on every tool call): `xp.sh tick "$tool"` grants a small flat XP amount and records a randomized Mad-Libs-style flavor line naming the actual tool used (`random_flavor` in `xp_core.py`), with a generic "the crew" filler when no tool name is available. Zero token cost — the hook runs entirely inside the harness.
-- **Respond** (mechanical, `Stop` hook, fires at the end of every turn): `xp.sh respond` grants a difficulty-scaled floor reward (minimum 100 XP at level 1 for a zero-tool-call turn, scaling up with this turn's tick count and with your level) so no turn goes unrewarded. It self-debounces — a no-op if an `ambient`- or `stop-hook`-sourced award already landed in the last 10s, so it never double-counts a turn the model's own Ambient XP call already covered. For a turn with zero tool calls it picks a flavor line from a separate pool tuned for pure-conversation turns (`random_zero_tool_flavor`) rather than reusing the tool-naming flavors.
+- **Respond** (mechanical, `Stop` hook, fires at the end of every turn): `xp.sh respond` reads the turn's transcript (Claude Code hands it `transcript_path` on stdin) and **mechanically scores a Challenge Rating** from what actually happened — distinct files edited, edit volume, investigation depth, whether tests ran, multi-turn span (`extract_turn_features` + `score_turn` in `xp_core.py`, no ML/deps). The reward is the CR-table amount, so `respond` is a full stand-in for the model's Ambient XP `award` when that doesn't fire (non-Claude harness, or the model skipped it). If no transcript is available it falls back to the old tool-count tier (100 XP floor at level 1). It self-debounces — a no-op if an `ambient`- or `stop-hook`-sourced award already landed in the last 10s, so a turn the model already rewarded is never double-counted.
+
+All awards scale with level by `1.04 ** (level − 1)`, **capped at 3×** (`LEVEL_AWARD_CAP`) — the uncapped version was a runaway inflation loop once `respond` started minting every turn. Set `LEVEL_AWARD_CAP = 1.0` to disable level-scaling.
 
 `quests_completed` only increments on `award` (from `/side-quest` or the ambient rule) — `tick` and `respond` never bump it.
+
+## Cross-machine sync
+
+The ledger syncs over MQTT (`sidequest/xp/{events,state}`) — every award/tick/respond is applied locally, then published; the `xp-sync-daemon.sh` listener on each machine merges remote events by `event_id`. Beyond that event stream:
+
+- **Self-echo guard**: the broker echoes a machine's own publishes back to its subscriber; `apply-remote` drops any event whose `machine` is us (already applied locally — re-applying only risks a double-count once the id ages out of the 4,000-entry dedup ring).
+- **Reconcile on connect**: the event stream has no replay for a machine that was offline when its broker session lapsed, so totals drift and never re-converge. On every (re)connect the daemon runs `xp.sh reconcile <retained-state>` — XP is monotonic, so catching up to a higher shared total is always safe.
+- **`xp.sh reset-ledger <total>`**: operator override. Forces this machine's total and bumps a shared `epoch`; every other machine adopts it (up *or* down) on its next reconcile. Use it to undo an inflation bug fleet-wide.
 
 ## Status-bar integration
 

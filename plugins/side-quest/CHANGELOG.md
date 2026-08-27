@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.5.0] — 2026-08-27
+Transcript-heuristic Challenge Rating for `respond`, and stop the
+cross-machine ledger from inflating and drifting.
+
+### `respond` scores the turn instead of counting tool calls
+- `xp.sh respond` now reads the turn transcript (Claude Code passes
+  `transcript_path` on the Stop hook's stdin) and mechanically scores a
+  Challenge Rating from what actually happened this turn — distinct files
+  edited, edit volume, investigation depth before the first edit, whether
+  tests ran, multi-turn span (`extract_turn_features` + `score_turn`, no
+  ML, no deps). The reward is the CR-table amount, so `respond` is now a
+  full mechanical stand-in for the model's Ambient XP `award` when that
+  doesn't fire (non-Claude harness, or the model skipped it). Falls back
+  to the old tool-count tier when no transcript is available.
+
+### Inflation fix
+- **`LEVEL_AWARD_CAP = 3.0`.** `1.04 ** (level − 1)` is uncapped and
+  reaches ~44× by level 98; since `respond` mints an award every turn on
+  every machine and level is derived from the total those awards inflate,
+  it was a super-exponential runaway (the shared ledger doubled in ~25
+  min). The multiplier now caps at 3× (reached ~level 29). Set to `1.0`
+  to disable level-scaling.
+
+### Sync fixes
+- **Self-echo guard.** The broker echoes a machine's own publishes back
+  to its own subscriber; `apply-remote` now drops any event whose
+  `machine` is us. We already applied it locally before publishing —
+  re-applying only risked a double-count once the `event_id` aged out of
+  the dedup ring (which is exactly what a reconnecting daemon flushing a
+  backed-up outbox does). This was the concrete cause of the millions of
+  phantom XP.
+- **Dedup ring 500 → 4,000**, so a large outbox flush can't push a live
+  id off the end.
+- **`xp.sh reconcile`** — the daemon runs it on every (re)connect. The
+  event stream has no replay for a machine offline when its broker
+  session lapsed, so totals drift and never re-converge; `reconcile`
+  catches an already-earning ledger up to a higher retained shared total
+  (XP is monotonic, so that's safe) and honours an operator epoch bump.
+- **`xp.sh reset-ledger <total>`** — operator override. Forces this
+  machine's total, bumps a shared `epoch`; every other machine adopts it
+  (up *or* down) on its next reconcile. For undoing an inflation bug
+  fleet-wide. Ledgers gain an `epoch` field (default 0).
+
 ## [2.4.1] — 2026-08-26
 Fix a shell-parser bug that stopped the sync daemon from starting on macOS.
 
