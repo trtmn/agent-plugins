@@ -16,7 +16,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XP_SH="$SCRIPT_DIR/xp.sh"
 
-MQTT_HOST="${XP_MQTT_HOST:?XP_MQTT_HOST must be set to your MQTT broker's hostname}"
+MQTT_HOST="${XP_MQTT_HOST:?XP_MQTT_HOST must be set to the MQTT broker hostname}"
 MQTT_TOPIC="sidequest/xp/events"
 MQTT_STATE_TOPIC="sidequest/xp/state"
 MACHINE="${XP_MACHINE:-$(hostname -s)}"
