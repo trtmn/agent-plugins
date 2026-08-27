@@ -58,7 +58,7 @@ Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends
 
 4. **Quest acceptance.** 📜 scroll with quest name, CR, party composition, dice-roll flair — then a `> **Plain English:**` block stating exactly what launched, on which model, and what happens next.
 
-5. **XP award.** On completion, `scripts/xp.sh award <cr> <outcome> --source side-quest "<quest>"` grants real D&D 5e XP by CR (CR 1 = 200 … CR 5 = 1,800, up to CR 10) — full XP on success, half on partial, zero on a party wipe. The ledger at `~/.claude/side-quest/xp.json` tracks total XP, level (5e advancement table: Lv 2 at 300, Lv 3 at 900, Lv 4 at 2,700 …), quest count, and the last 100 quests. Atomic writes; any session or agent can read it.
+5. **XP award.** On completion, `scripts/xp.sh award <cr> <outcome> --source side-quest "<quest>"` grants XP by CR (level-1 base: CR 1 = 2,000 … CR 5 = 18,000, up to CR 10 = 59,000) — full XP on success, half on partial, zero on a party wipe. Awards are level-scaled: every base reward is multiplied by `1.04 ** (level − 1)`, one point below the level-threshold growth (`1.05`), so each level takes ~1% more turns to clear than the last. The ledger at `~/.claude/side-quest/xp.json` tracks total XP, level (geometric curve: Lv 2 at 1,000 XP, each subsequent gap ×1.05), quest count, and the last 100 quests. Atomic writes; any session or agent can read it.
 
 6. **Quest report.** On completion: 🏆 loot report (concrete results) + XP line with the script's real numbers (+ 🎉 LEVEL UP when crossed) + plain-English summary. On failure: 💀 party-wiped report, zero XP, plain-English error and suggested next step. Results are reported faithfully — partial or failed work is never inflated, and XP follows honesty.
 
@@ -82,8 +82,8 @@ Fire-and-forget task delegation with table-top flair. `/side-quest <task>` sends
 ```
 🏆 **QUEST COMPLETE!** 🐉 The dragon is slain!
 💰 Loot: 3 files changed, all tests passing
-✨ +700 XP → 700 total (Level 2, next at 900)
-🎉 **LEVEL UP!** Welcome to Level 2, adventurer!
+✨ +7,000 XP → 7,000 total (Level 7, next at 8,050)
+🎉 **LEVEL UP!** Welcome to Level 7, adventurer!
 
 > **Plain English:** The refactor is done — 3 files changed,
 > tests pass. Summary of changes below.
@@ -95,7 +95,7 @@ Beyond `/side-quest` itself, three independent mechanisms feed the same ledger:
 
 - **Ambient XP** (model-issued, CLAUDE.md rule): after completing any user-requested task, Claude runs `~/.claude/side-quest/xp.sh award <cr> <outcome> "<summary>"` — the only path that grants CR-based XP, since judging task difficulty needs the model's judgment. Skipped for pure-conversation turns with no tool use.
 - **Tick** (mechanical, `PostToolUse` hook, fires on every tool call): `xp.sh tick "$tool"` grants a small flat XP amount and records a randomized Mad-Libs-style flavor line naming the actual tool used (`random_flavor` in `xp_core.py`), with a generic "the crew" filler when no tool name is available. Zero token cost — the hook runs entirely inside the harness.
-- **Respond** (mechanical, `Stop` hook, fires at the end of every turn): `xp.sh respond` grants a difficulty-scaled floor reward (minimum 10 XP even for a zero-tool-call turn, scaling up with this turn's tick count) so no turn goes unrewarded. It self-debounces — a no-op if an `ambient`- or `stop-hook`-sourced award already landed in the last 10s, so it never double-counts a turn the model's own Ambient XP call already covered. For a turn with zero tool calls it picks a flavor line from a separate pool tuned for pure-conversation turns (`random_zero_tool_flavor`) rather than reusing the tool-naming flavors.
+- **Respond** (mechanical, `Stop` hook, fires at the end of every turn): `xp.sh respond` grants a difficulty-scaled floor reward (minimum 100 XP at level 1 for a zero-tool-call turn, scaling up with this turn's tick count and with your level) so no turn goes unrewarded. It self-debounces — a no-op if an `ambient`- or `stop-hook`-sourced award already landed in the last 10s, so it never double-counts a turn the model's own Ambient XP call already covered. For a turn with zero tool calls it picks a flavor line from a separate pool tuned for pure-conversation turns (`random_zero_tool_flavor`) rather than reusing the tool-naming flavors.
 
 `quests_completed` only increments on `award` (from `/side-quest` or the ambient rule) — `tick` and `respond` never bump it.
 

@@ -46,11 +46,11 @@ def test_award_writes_ledger_and_prints_summary(tmp_path):
     result = _run(["award", "3", "success", "fix the thing"], home=tmp_path)
     assert result.returncode == 0, result.stderr
     summary = json.loads(result.stdout)
-    assert summary["awarded"] == 700
-    assert summary["total_xp"] == 700
+    assert summary["awarded"] == 7000
+    assert summary["total_xp"] == 7000
 
     ledger = json.loads((tmp_path / "xp.json").read_text())
-    assert ledger["total_xp"] == 700
+    assert ledger["total_xp"] == 7000
     assert ledger["quests_completed"] == 1
 
 
@@ -109,12 +109,12 @@ def test_award_queues_to_outbox_when_broker_unreachable(tmp_path):
 
     # local ledger still updates even though the publish failed
     ledger = json.loads((tmp_path / "xp.json").read_text())
-    assert ledger["total_xp"] == 200
+    assert ledger["total_xp"] == 2000
 
     outbox = (tmp_path / "mqtt_outbox.jsonl").read_text().strip().splitlines()
     assert len(outbox) == 1
     queued = json.loads(outbox[0])
-    assert queued["xp"] == 200
+    assert queued["xp"] == 2000
 
 
 def test_flush_outbox_removes_events_that_publish_successfully(tmp_path):
@@ -155,7 +155,7 @@ def test_respond_awards_the_floor_when_no_tool_calls_happened(tmp_path):
     result = _run(["respond"], home=tmp_path)
     assert result.returncode == 0, result.stderr
     ledger = json.loads((tmp_path / "xp.json").read_text())
-    assert ledger["total_xp"] == 10
+    assert ledger["total_xp"] == 100
     assert ledger["history"][-1]["kind"] == "response"
 
 
@@ -166,7 +166,7 @@ def test_respond_scales_up_with_prior_tick_count(tmp_path):
     assert result.returncode == 0, result.stderr
     ledger = json.loads((tmp_path / "xp.json").read_text())
     # 6 ticks * 10xp + response reward for a 6-tool-call turn (tier > 10xp)
-    assert ledger["total_xp"] == 60 + 80
+    assert ledger["total_xp"] == 60 + 800
 
 
 def test_respond_does_not_bump_quests_completed(tmp_path):

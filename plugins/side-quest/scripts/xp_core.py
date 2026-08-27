@@ -17,19 +17,36 @@ from pathlib import Path
 APPLIED_EVENT_IDS_CAP = 500
 DEFAULT_TICK_XP = 10
 
-# D&D 5e XP by Challenge Rating (clamped to CR 10 for truly legendary quests)
+# Base award table by Challenge Rating (clamped to CR 10 for truly legendary
+# quests). These are the level-1 amounts; scale_award() grows them with level.
 XP_BY_CR = {
-    1: 200,
-    2: 450,
-    3: 700,
-    4: 1100,
-    5: 1800,
-    6: 2300,
-    7: 2900,
-    8: 3900,
-    9: 5000,
-    10: 5900,
+    1: 2000,
+    2: 4500,
+    3: 7000,
+    4: 11000,
+    5: 18000,
+    6: 23000,
+    7: 29000,
+    8: 39000,
+    9: 50000,
+    10: 59000,
 }
+
+# Awards scale with the earner's current level. Each level multiplies every
+# base reward (CR table + response floor) by this factor, compounding. It sits
+# one percentage point below the level-threshold growth in _build_thresholds
+# (1.05), so each level takes ~1% more turns to clear than the one before it —
+# a slow difficulty ramp rather than a treadmill that exactly cancels out.
+LEVEL_AWARD_GROWTH = 1.04
+
+
+def level_award_multiplier(level):
+    return LEVEL_AWARD_GROWTH ** max(0, (level or 1) - 1)
+
+
+def scale_award(base_xp, level):
+    """Scale a level-1 base reward to the earner's current level."""
+    return round(base_xp * level_award_multiplier(level))
 
 
 def _now_iso():
@@ -63,8 +80,8 @@ def next_level_at(xp):
     return None  # shouldn't happen since we build past xp
 
 
-def new_award_event(machine, cr, outcome, quest, source="ambient"):
-    base = XP_BY_CR[max(1, min(10, cr))]
+def new_award_event(machine, cr, outcome, quest, source="ambient", level=1):
+    base = scale_award(XP_BY_CR[max(1, min(10, cr))], level)
     xp = {"success": base, "partial": base // 2, "wipe": 0}[outcome]
     return {
         "event_id": str(uuid.uuid4()),
@@ -258,14 +275,15 @@ def new_tick_event(machine, xp=DEFAULT_TICK_XP, source="hook", flavor=None, tool
 # Difficulty-scaled floor reward for any response, mechanically estimated
 # from tool-call count (no model judgment involved — this is a hook, not
 # an "Ambient XP" self-assessment). (max_tool_calls, xp), ascending;
-# first tier whose threshold covers the count wins.
+# first tier whose threshold covers the count wins. Level-1 base amounts —
+# scale_award() grows them with the earner's level.
 RESPONSE_XP_TIERS = [
-    (0, 10),
-    (2, 20),
-    (5, 40),
-    (10, 80),
-    (20, 150),
-    (float("inf"), 300),
+    (0, 100),
+    (2, 200),
+    (5, 400),
+    (10, 800),
+    (20, 1500),
+    (float("inf"), 3000),
 ]
 
 
@@ -283,7 +301,7 @@ def count_hook_entries_since(history, boundary_ts):
     return sum(1 for e in entries if e.get("ts", "") > boundary_ts)
 
 
-def new_response_event(machine, tool_count, source="stop-hook"):
+def new_response_event(machine, tool_count, source="stop-hook", level=1):
     if tool_count == 0:
         flavor = random_zero_tool_flavor()
     else:
@@ -293,7 +311,7 @@ def new_response_event(machine, tool_count, source="stop-hook"):
         "machine": machine,
         "ts": _now_iso(),
         "kind": "response",
-        "xp": xp_for_tool_count(tool_count),
+        "xp": scale_award(xp_for_tool_count(tool_count), level),
         "source": source,
         "tool_count": tool_count,
         "flavor": flavor,
@@ -630,7 +648,10 @@ def cmd_award(argv):
     quest = " ".join(rest) or "Unnamed quest"
 
     ledger = load_ledger(_ledger_path())
-    event = new_award_event(_machine_name(), cr, outcome, quest, source=source)
+    level = level_for(ledger["total_xp"])
+    event = new_award_event(
+        _machine_name(), cr, outcome, quest, source=source, level=level
+    )
     apply_event(ledger, event)
     save_ledger(_ledger_path(), ledger)
     _publish_or_outbox(event)
@@ -685,7 +706,8 @@ def cmd_respond(argv):
 
     boundary_ts = boundary_entry["ts"] if boundary_entry else None
     tool_count = count_hook_entries_since(history, boundary_ts)
-    event = new_response_event(_machine_name(), tool_count)
+    level = level_for(ledger["total_xp"])
+    event = new_response_event(_machine_name(), tool_count, level=level)
     apply_event(ledger, event)
     save_ledger(_ledger_path(), ledger)
     _publish_or_outbox(event)

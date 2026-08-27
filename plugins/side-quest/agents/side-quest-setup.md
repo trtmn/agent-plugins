@@ -67,14 +67,33 @@ chmod +x "$HOME/.claude/statusline-command.sh"
 
 Verify: `echo '{}' | bash ~/.claude/statusline-command.sh` should print a statusline string.
 
-### 5. Install and start the sync daemon
+### 5. Configure the MQTT broker, then install the sync daemon
 
-Detect OS with `uname -s`.
+The daemon **hard-requires** `XP_MQTT_HOST` — `xp-sync-daemon.sh` exits immediately if it's unset, and under launchd/systemd that means an infinite crash-loop (respawn, fail, respawn) with nothing useful logged, unless something sets the var in its environment first. Neither template ships a value (per 2.3.0: no personal infra baked into the plugin), so you must resolve this **before** installing the daemon — never install it with a blank/unresolved broker host.
+
+**First, check if a broker host is already configured** (idempotent re-run — don't re-ask):
+```bash
+grep -o '<key>XP_MQTT_HOST</key>[[:space:]]*<string>[^<]*' "$HOME/Library/LaunchAgents/com.trtmn.sidequest-xp-sync.plist" 2>/dev/null | sed 's/.*<string>//'
+# or on Linux:
+grep '^Environment=XP_MQTT_HOST=' "$HOME/.config/systemd/user/sidequest-xp-sync.service" 2>/dev/null | cut -d= -f3
+```
+If either prints a non-empty, non-placeholder value, reuse it as `MQTT_HOST` and skip straight to installing the daemon below.
+
+**Otherwise, ask the user** with `AskUserQuestion`:
+
+> **"Sync XP across machines via MQTT?"**
+> Options: "Yes — I'll give you the broker hostname/IP" / "No — keep XP local to this machine"
+
+- If **yes**: get the hostname/IP from their free-text answer (or ask a follow-up if the option text alone doesn't carry it) and set `MQTT_HOST` to it.
+- If **no**: do not create the plist/service at all — skip the rest of this step, note "MQTT sync skipped (local-only)" in the final report, and move on to step 6. Local `award`/`tick`/`respond` all work fully without a broker.
+
+With `MQTT_HOST` resolved, detect OS with `uname -s` and install:
 
 **macOS** — launchd agent:
 ```bash
 mkdir -p "$HOME/Library/LaunchAgents"
-sed "s|__HOME__|$HOME|g" "<scripts_root>/com.trtmn.sidequest-xp-sync.plist.template" \
+sed -e "s|__HOME__|$HOME|g" -e "s|__XP_MQTT_HOST__|$MQTT_HOST|g" \
+  "<scripts_root>/com.trtmn.sidequest-xp-sync.plist.template" \
   > "$HOME/Library/LaunchAgents/com.trtmn.sidequest-xp-sync.plist"
 launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.trtmn.sidequest-xp-sync.plist" 2>/dev/null
 launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.trtmn.sidequest-xp-sync.plist"
@@ -83,22 +102,25 @@ launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.trtmn.sideque
 **Linux** — systemd user service:
 ```bash
 mkdir -p "$HOME/.config/systemd/user"
-sed "s|__HOME__|$HOME|g" "<scripts_root>/sidequest-xp-sync.service.template" \
+sed -e "s|__HOME__|$HOME|g" -e "s|__XP_MQTT_HOST__|$MQTT_HOST|g" \
+  "<scripts_root>/sidequest-xp-sync.service.template" \
   > "$HOME/.config/systemd/user/sidequest-xp-sync.service"
 systemctl --user daemon-reload
 systemctl --user enable --now sidequest-xp-sync.service
 ```
 
 Verify after a couple seconds:
-- macOS: `launchctl list | grep sidequest` should show the label with a PID.
+- macOS: `launchctl list | grep sidequest` should show the label with a PID (not a fast-repeating PID churn — that means it's crash-looping, almost always an unset/wrong `XP_MQTT_HOST`).
 - Linux: `systemctl --user is-active sidequest-xp-sync.service` should print `active`.
-- Either way: `tail -5 ~/.claude/side-quest/xp-sync.log` should show a `connecting to <broker>` line with no repeated error loop.
+- Either way: `tail -5 ~/.claude/side-quest/xp-sync.log` should show a `connecting to <broker>` line with no repeated error loop, and `~/.claude/side-quest/xp-sync.err.log` should be empty or show only transient connection retries — not a repeated `XP_MQTT_HOST must be set` line.
 
-If the daemon can't reach the broker (unreachable Tailscale, broker down), that's fine — it retries on its own every 5s. Don't treat it as a setup failure; report it as a note.
+If the daemon can reach `MQTT_HOST` but not the broker port (unreachable Tailscale, broker down), that's fine — it retries on its own every 5s. Don't treat it as a setup failure; report it as a note. See the Tailscale-reachability note above if `nc -zv $MQTT_HOST 1883` times out or the hostname won't resolve.
 
 ### 6. Merge settings.json
 
 Read `~/.claude/settings.json`. If it doesn't exist, create it as `{}`.
+
+If step 5 resolved an `MQTT_HOST` (broker configured, whether newly asked or reused from an existing install), prefix it inline on both hook commands below as `XP_MQTT_HOST="$MQTT_HOST" ~/.claude/side-quest/xp.sh ...` — the daemon's `EnvironmentVariables`/`Environment=` only covers the daemon's own subscribe loop; `xp.sh`'s `award`/`tick`/`respond`/`flush-outbox` publish calls run as hook subprocesses that do **not** inherit the daemon's environment, so they need the var set on the command itself. If MQTT sync was skipped in step 5, leave the commands as plain `~/.claude/side-quest/xp.sh ...` (local-only; `xp_core.py` already degrades gracefully when `XP_MQTT_HOST` is unset).
 
 **statusLine block** — add or replace the top-level `statusLine` key:
 ```json
@@ -109,7 +131,7 @@ Read `~/.claude/settings.json`. If it doesn't exist, create it as `{}`.
 }
 ```
 
-**Stop hook** — append to the `hooks.Stop` array (create the array if absent). Do not remove existing Stop hooks. The hook to add:
+**Stop hook** — append to the `hooks.Stop` array (create the array if absent). Do not remove existing Stop hooks. The hook to add (command shown without the `XP_MQTT_HOST` prefix; add it per the note above if a broker is configured):
 ```json
 {
   "hooks": [
@@ -123,11 +145,11 @@ Read `~/.claude/settings.json`. If it doesn't exist, create it as `{}`.
 }
 ```
 
-`respond` is a mechanical, difficulty-scaled floor reward for *any* response — minimum 10 XP even for a pure-conversation turn, scaling up with how many tool calls happened (counted from this machine's own tick history, no transcript parsing needed). It self-debounces: if an `ambient`- or `stop-hook`-sourced award landed in the last 10s (e.g. the model's own Ambient XP call already covered this turn), it's a no-op — so it never double-rewards the same turn.
+`respond` is a mechanical, difficulty-scaled floor reward for *any* response — minimum 100 XP (at level 1) even for a pure-conversation turn, scaling up with how many tool calls happened and with the earner's level (counted from this machine's own tick history, no transcript parsing needed). It self-debounces: if an `ambient`- or `stop-hook`-sourced award landed in the last 10s (e.g. the model's own Ambient XP call already covered this turn), it's a no-op — so it never double-rewards the same turn.
 
 Before adding the Stop hook, check if one referencing `side-quest/xp.sh respond` (or the older `side-quest/xp.sh award 1 success --source stop-hook`) already exists — if so, skip to avoid duplicates. If you find the older flat-CR1 version, replace it with the `respond` version above.
 
-**PostToolUse tick hook** — append a new entry to the `hooks.PostToolUse` array (create it if absent). Do **not** remove or replace any existing `PostToolUse` entries (e.g. a lint-on-save hook) — this is an additional matcher, not a replacement:
+**PostToolUse tick hook** — append a new entry to the `hooks.PostToolUse` array (create it if absent). Do **not** remove or replace any existing `PostToolUse` entries (e.g. a lint-on-save hook) — this is an additional matcher, not a replacement (command shown without the `XP_MQTT_HOST` prefix; add it per the note above if a broker is configured):
 ```json
 {
   "matcher": "*",
@@ -197,7 +219,8 @@ Return a checklist of what was done:
 - ✅/⚠️ mosquitto_pub/mosquitto_sub present (or installed)
 - ✅/⚠️ xp.sh, xp_core.py, xp-sync-daemon.sh deployed (and verified)
 - ✅/⚠️ statusline-command.sh deployed (and verified)
-- ✅/⚠️ sync daemon installed and running (launchd/systemd) — note if it's retrying rather than connected
+- ✅/⚠️/⏭️ MQTT broker configured (host used) / local-only by user choice
+- ✅/⚠️/⏭️ sync daemon installed and running (launchd/systemd) — note if it's retrying rather than connected, or skipped (local-only)
 - ✅/⚠️ settings.json statusLine block added/updated
 - ✅/⚠️ settings.json Stop hook added (or already present)
 - ✅/⚠️ settings.json PostToolUse tick hook added (or already present)
