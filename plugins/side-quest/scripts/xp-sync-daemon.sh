@@ -26,17 +26,31 @@ log() {
   echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"
 }
 
+fetch_shared_state() {
+  # Retained snapshot of the shared total. Empty string if unreachable.
+  mosquitto_sub -h "$MQTT_HOST" -t "$MQTT_STATE_TOPIC" -q 1 -C 1 -W 5 2>>"$LOG_FILE"
+}
+
 bootstrap_from_shared_state() {
   # A fresh ledger (new machine, or a reinstall) would otherwise start
   # counting from zero instead of joining the existing shared pool.
-  # Fetch the retained state snapshot once at startup and adopt it if
-  # this ledger has never earned anything locally (no-op otherwise —
-  # see should_bootstrap_from_state in xp_core.py).
+  # Adopt the retained snapshot at startup if this ledger has never
+  # earned anything locally (no-op otherwise — see
+  # should_bootstrap_from_state in xp_core.py).
   local state
-  state="$(mosquitto_sub -h "$MQTT_HOST" -t "$MQTT_STATE_TOPIC" -q 1 -C 1 -W 5 2>>"$LOG_FILE")"
-  if [ -n "$state" ]; then
-    "$XP_SH" bootstrap "$state" >/dev/null 2>&1 || true
-  fi
+  state="$(fetch_shared_state)"
+  [ -n "$state" ] && "$XP_SH" bootstrap "$state" >/dev/null 2>&1 || true
+}
+
+reconcile_with_shared_state() {
+  # The event stream has no per-subscriber replay once a broker session
+  # lapses, so a machine that was offline silently drifts and never
+  # re-converges. On every (re)connect, pull the retained snapshot and
+  # catch up to it (or honour an operator epoch reset) — see
+  # reconcile_with_state in xp_core.py.
+  local state
+  state="$(fetch_shared_state)"
+  [ -n "$state" ] && "$XP_SH" reconcile "$state" >/dev/null 2>&1 || true
 }
 
 tick_flush_loop() {
@@ -48,6 +62,7 @@ tick_flush_loop() {
 
 subscriber_loop() {
   while true; do
+    reconcile_with_shared_state
     log "connecting to $MQTT_HOST as $CLIENT_ID"
     # -c: persistent session (broker queues messages while we're offline)
     # -F '%p': print only the JSON payload, one line per message

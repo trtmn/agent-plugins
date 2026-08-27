@@ -22,7 +22,7 @@ def _write_spy_pub(home):
     return log
 
 
-def _run(args, home, extra_env=None):
+def _run(args, home, extra_env=None, stdin_data=None):
     if not (home / "fake_mosquitto_pub").exists():
         _write_fake_pub(home, exit_code=0)
     env = {
@@ -35,6 +35,7 @@ def _run(args, home, extra_env=None):
     return subprocess.run(
         ["bash", str(XP_SH), *args],
         env=env,
+        input=stdin_data if stdin_data is not None else "",
         capture_output=True,
         text=True,
         timeout=10,
@@ -245,3 +246,84 @@ def test_apply_remote_event_is_idempotent_on_replay(tmp_path):
 
     ledger = json.loads((tmp_path / "xp.json").read_text())
     assert ledger["total_xp"] == 10
+
+
+def test_apply_remote_ignores_our_own_echoed_event(tmp_path):
+    # the broker echoes our publishes back to our own subscriber; we
+    # already applied them locally, so re-applying only risks a
+    # double-count once the id ages out of the dedup ring.
+    event = {
+        "event_id": "self-echo-1",
+        "machine": "thisbox",
+        "ts": "2026-08-27T00:00:00+00:00",
+        "kind": "response",
+        "xp": 5000,
+        "source": "stop-hook",
+    }
+    _run(
+        ["apply-remote", json.dumps(event)],
+        home=tmp_path,
+        extra_env={"XP_MACHINE": "thisbox"},
+    )
+    result = _run(["status"], home=tmp_path, extra_env={"XP_MACHINE": "thisbox"})
+    assert json.loads(result.stdout)["total_xp"] == 0
+
+
+def test_reconcile_catches_a_drifted_ledger_up_to_shared_state(tmp_path):
+    _run(["award", "1", "success", "local earning"], home=tmp_path)
+    before = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+    state = {"total_xp": before + 500_000, "epoch": 0}
+    _run(["reconcile", json.dumps(state)], home=tmp_path)
+    after = json.loads((tmp_path / "xp.json").read_text())["total_xp"]
+    assert after == before + 500_000
+    assert (
+        json.loads((tmp_path / "xp.json").read_text())["history"][-1]["kind"]
+        == "reconcile"
+    )
+
+
+def test_reset_ledger_forces_total_and_bumps_epoch(tmp_path):
+    _run(["award", "1", "success", "some xp"], home=tmp_path)
+    result = _run(["reset-ledger", "12345"], home=tmp_path)
+    out = json.loads(result.stdout)
+    assert out["total_xp"] == 12345
+    assert out["epoch"] == 1
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    assert ledger["total_xp"] == 12345
+    assert ledger["epoch"] == 1
+
+
+def test_respond_uses_the_transcript_heuristic_when_given_one(tmp_path):
+    transcript = tmp_path / "t.jsonl"
+    rows = [
+        {"type": "user", "message": {"role": "user", "content": "do a big refactor"}},
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "name": "Edit",
+                        "input": {
+                            "file_path": f"/p/f{i}.py",
+                            "old_string": "x" * 200,
+                            "new_string": "y" * 200,
+                        },
+                    }
+                    for i in range(9)
+                ],
+            },
+        },
+    ]
+    transcript.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    _run(
+        ["respond"],
+        home=tmp_path,
+        stdin_data=json.dumps({"transcript_path": str(transcript)}),
+    )
+    ledger = json.loads((tmp_path / "xp.json").read_text())
+    entry = ledger["history"][-1]
+    assert entry["kind"] == "response"
+    assert entry["cr"] == 5  # 9 distinct files edited
+    assert entry["xp"] == 18000  # CR5 base, level 1, no scaling

@@ -8,13 +8,18 @@ be unit tested without shelling out or touching real files.
 import json
 import os
 import random
+import re
 import subprocess
 import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-APPLIED_EVENT_IDS_CAP = 500
+# Big enough that a reconnecting daemon re-flushing a backed-up outbox
+# can't push an already-applied event_id off the end of the ring and
+# double-count it. (Self-echoes are also dropped outright in
+# cmd_apply_remote, but this is the belt to that suspenders.)
+APPLIED_EVENT_IDS_CAP = 4000
 DEFAULT_TICK_XP = 10
 
 # Base award table by Challenge Rating (clamped to CR 10 for truly legendary
@@ -39,9 +44,18 @@ XP_BY_CR = {
 # a slow difficulty ramp rather than a treadmill that exactly cancels out.
 LEVEL_AWARD_GROWTH = 1.04
 
+# ...but capped. Uncapped, 1.04**(level-1) reaches ~44x by level 98, and
+# since the `respond` Stop hook mints an award every single turn on every
+# machine, and level is derived from the very total those awards inflate,
+# it becomes a super-exponential runaway (this actually happened: the
+# shared ledger doubled in ~25 minutes). The cap (hit around level 29)
+# keeps the ramp bounded. Set to 1.0 to disable level-scaling entirely.
+LEVEL_AWARD_CAP = 3.0
+
 
 def level_award_multiplier(level):
-    return LEVEL_AWARD_GROWTH ** max(0, (level or 1) - 1)
+    raw = LEVEL_AWARD_GROWTH ** max(0, (level or 1) - 1)
+    return min(raw, LEVEL_AWARD_CAP)
 
 
 def scale_award(base_xp, level):
@@ -301,21 +315,199 @@ def count_hook_entries_since(history, boundary_ts):
     return sum(1 for e in entries if e.get("ts", "") > boundary_ts)
 
 
-def new_response_event(machine, tool_count, source="stop-hook", level=1):
-    if tool_count == 0:
-        flavor = random_zero_tool_flavor()
-    else:
-        flavor = random_flavor()
+# --- transcript-heuristic Challenge Rating -----------------------------
+# The Stop hook can read the turn's transcript (Claude Code passes
+# `transcript_path` on stdin). Estimating the CR from what actually
+# happened this turn — files touched, edit volume, investigation depth —
+# is a far better mechanical proxy than counting tool calls, and it's the
+# fallback for when the model's own Ambient XP `award` call doesn't fire
+# (non-Claude harness, or the model just skipped it). No ML, no deps —
+# pure feature extraction plus a threshold ladder.
+
+EDIT_TOOL_NAMES = {"Edit", "Write", "MultiEdit", "NotebookEdit", "str_replace_editor"}
+INVESTIGATION_TOOL_NAMES = {
+    "Read",
+    "Grep",
+    "Glob",
+    "Bash",
+    "WebFetch",
+    "WebSearch",
+    "Task",
+    "Agent",
+    "LS",
+}
+_TEST_CMD_RE = re.compile(
+    r"\b(pytest|jest|vitest|mocha|rspec|phpunit|tox|nox|"
+    r"go test|cargo test|dotnet test|gradle test|mvn test|make test|"
+    r"npm (run )?test|yarn test|pnpm test|"
+    r"ruff|mypy|tsc|eslint|flake8)\b"
+)
+
+
+def _iter_transcript(transcript_path):
+    p = Path(transcript_path)
+    if not p.exists():
+        return []
+    rows = []
+    for line in p.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except ValueError:
+            continue
+    return rows
+
+
+def _is_genuine_user_row(row):
+    if row.get("type") != "user":
+        return False
+    content = (row.get("message") or {}).get("content")
+    if isinstance(content, str):
+        return True
+    if isinstance(content, list):
+        return not any(
+            isinstance(b, dict) and b.get("type") == "tool_result" for b in content
+        )
+    return False
+
+
+def _approx_lines(tool_name, tool_input):
+    if not isinstance(tool_input, dict):
+        return 0
+    chars = 0
+    if tool_name == "Write":
+        chars = len(tool_input.get("content") or "")
+    elif tool_name == "MultiEdit":
+        for e in tool_input.get("edits") or []:
+            chars += len(e.get("old_string") or "") + len(e.get("new_string") or "")
+    else:  # Edit / NotebookEdit / str_replace_editor
+        chars = len(tool_input.get("old_string") or "") + len(
+            tool_input.get("new_string") or tool_input.get("new_source") or ""
+        )
+    return chars // 50
+
+
+def extract_turn_features(transcript_path):
+    """Summarise the most recent turn (everything after the last genuine
+    user message) of a Claude Code transcript into difficulty features.
+    Returns None when the transcript can't be read or has no turn yet."""
+    if not transcript_path:
+        return None
+    rows = _iter_transcript(transcript_path)
+    if not rows:
+        return None
+
+    last_user = max(
+        (i for i, r in enumerate(rows) if _is_genuine_user_row(r)), default=None
+    )
+    if last_user is None:
+        return None
+    turn = rows[last_user + 1 :]
+
+    total_tools = edit_tools = investigation_tools = 0
+    approx_lines = 0
+    files_touched = set()
+    files_created = 0
+    tests_run = False
+    assistant_turns = 0
+    seen_edit = False
+
+    for row in turn:
+        if row.get("type") != "assistant":
+            continue
+        content = (row.get("message") or {}).get("content")
+        if not isinstance(content, list):
+            continue
+        had_tool = False
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            had_tool = True
+            total_tools += 1
+            name = block.get("name") or ""
+            tool_input = block.get("input") or {}
+            path = (
+                tool_input.get("file_path")
+                or tool_input.get("path")
+                or tool_input.get("notebook_path")
+            )
+            if name in EDIT_TOOL_NAMES:
+                edit_tools += 1
+                seen_edit = True
+                if path:
+                    files_touched.add(path)
+                if name == "Write":
+                    files_created += 1
+                approx_lines += _approx_lines(name, tool_input)
+            elif name in INVESTIGATION_TOOL_NAMES:
+                if not seen_edit:
+                    investigation_tools += 1
+                if name == "Bash" and _TEST_CMD_RE.search(
+                    tool_input.get("command") or ""
+                ):
+                    tests_run = True
+        if had_tool:
+            assistant_turns += 1
+
     return {
+        "total_tools": total_tools,
+        "edit_tools": edit_tools,
+        "files_touched": len(files_touched),
+        "files_created": files_created,
+        "approx_lines": approx_lines,
+        "investigation_tools": investigation_tools,
+        "tests_run": tests_run,
+        "assistant_turns": assistant_turns,
+    }
+
+
+def score_turn(f):
+    """Map turn features to a Challenge Rating 1-5. Evaluated high to low."""
+    files = f["files_touched"]
+    lines = f["approx_lines"]
+    if (
+        files >= 8
+        or (files >= 5 and lines >= 250)
+        or (f["files_created"] >= 3 and f["edit_tools"] >= 6)
+    ):
+        return 5
+    if files >= 4 or lines >= 150 or (files >= 2 and f["tests_run"] and lines >= 60):
+        return 4
+    if f["edit_tools"] >= 1 and (
+        files >= 2
+        or lines >= 40
+        or f["investigation_tools"] >= 10
+        or f["assistant_turns"] >= 4
+    ):
+        return 3
+    if f["edit_tools"] >= 1:
+        return 2
+    if f["total_tools"] >= 4:
+        return 2
+    return 1
+
+
+def new_response_event(machine, tool_count, source="stop-hook", level=1, cr=None):
+    """`cr` set -> the transcript heuristic decided a Challenge Rating and
+    the reward is the (level-scaled) CR-table amount. `cr` None -> no
+    transcript was available; fall back to the tool-count tier."""
+    base = XP_BY_CR[cr] if cr else xp_for_tool_count(tool_count)
+    flavor = random_zero_tool_flavor() if tool_count == 0 else random_flavor()
+    event = {
         "event_id": str(uuid.uuid4()),
         "machine": machine,
         "ts": _now_iso(),
         "kind": "response",
-        "xp": scale_award(xp_for_tool_count(tool_count), level),
+        "xp": scale_award(base, level),
         "source": source,
         "tool_count": tool_count,
         "flavor": flavor,
     }
+    if cr:
+        event["cr"] = cr
+    return event
 
 
 HISTORY_CAP = 100
@@ -365,6 +557,7 @@ def apply_bootstrap(ledger, state, machine):
     ledger["total_xp"] = state.get("total_xp", 0)
     ledger["level"] = state.get("level", level_for(ledger["total_xp"]))
     ledger["quests_completed"] = state.get("quests_completed", 0)
+    ledger["epoch"] = state.get("epoch", 0)
     ledger["next_level_at"] = state.get(
         "next_level_at", next_level_at(ledger["total_xp"])
     )
@@ -382,6 +575,55 @@ def apply_bootstrap(ledger, state, machine):
             "new_level": ledger["level"],
         }
     )
+
+
+def reconcile_with_state(ledger, state, machine):
+    """Merge a retained shared-state snapshot into a ledger that has
+    *already* earned locally — the case `should_bootstrap_from_state`
+    deliberately refuses. The event stream is lossy for a machine that
+    was offline (no per-subscriber replay if the broker session lapsed),
+    so totals drift apart and never re-converge. This closes that gap:
+
+    - XP is monotonic, so catching up to a higher shared total is always
+      safe — adopt it.
+    - An `epoch` bump (via `xp.sh reset-ledger`) is an operator override
+      that wins in *either* direction, so a bad inflation can actually be
+      undone across the fleet.
+
+    Returns True if the ledger changed."""
+    if not state:
+        return False
+    local_epoch = ledger.get("epoch", 0)
+    state_epoch = state.get("epoch", 0)
+    state_total = state.get("total_xp", 0)
+
+    if state_epoch > local_epoch:
+        target = state_total
+        ledger["epoch"] = state_epoch
+        reason = f"reset epoch {state_epoch}"
+    elif state_total > ledger.get("total_xp", 0):
+        target = state_total
+        reason = "caught up to shared pool"
+    else:
+        return False
+
+    ledger["total_xp"] = target
+    ledger["level"] = level_for(target)
+    ledger["next_level_at"] = next_level_at(target)
+    ledger.setdefault("history", []).append(
+        {
+            "event_id": str(uuid.uuid4()),
+            "machine": machine,
+            "ts": _now_iso(),
+            "kind": "reconcile",
+            "xp": 0,
+            "source": "reconcile",
+            "flavor": f"reconciled to {target:,} XP ({reason})",
+            "leveled_up": False,
+            "new_level": ledger["level"],
+        }
+    )
+    return True
 
 
 TICK_FLUSH_INTERVAL = 10.0
@@ -504,6 +746,7 @@ def publish_state(
         "level": ledger.get("level", 1),
         "quests_completed": ledger.get("quests_completed", 0),
         "next_level_at": ledger.get("next_level_at"),
+        "epoch": ledger.get("epoch", 0),
     }
     try:
         result = subprocess.run(
@@ -533,6 +776,7 @@ def _empty_ledger():
         "total_xp": 0,
         "level": 1,
         "quests_completed": 0,
+        "epoch": 0,
         "history": [],
         "applied_event_ids": [],
     }
@@ -686,11 +930,31 @@ def cmd_tick(argv):
 RESPONSE_DEBOUNCE_SECONDS = 10
 
 
+def _read_hook_stdin():
+    """Claude Code pipes the hook's JSON payload (with `transcript_path`)
+    on stdin. Return {} for a manual invocation / no payload."""
+    if sys.stdin is None or sys.stdin.isatty():
+        return {}
+    try:
+        raw = sys.stdin.read().strip()
+    except (OSError, ValueError):
+        return {}
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return {}
+
+
 def cmd_respond(argv):
-    """Difficulty-scaled floor reward for any response — a Stop hook, not
-    a model-issued call. Debounces against an 'ambient'/'stop-hook'
-    entry that just fired (e.g. this same turn's model-issued Ambient XP
-    call), so a turn isn't double-rewarded."""
+    """Mechanical reward for any response — a Stop hook, not a model-issued
+    call. Reads the turn transcript (if the hook handed one over) and
+    scores a Challenge Rating from what actually happened; falls back to
+    the tool-count tier otherwise. Debounces against an 'ambient'/
+    'stop-hook' entry that just fired (e.g. this turn's model-issued
+    Ambient XP call), so a turn isn't double-rewarded."""
+    hook = _read_hook_stdin()
     ledger = load_ledger(_ledger_path())
     history = ledger.get("history", [])
     boundary_entry = next(
@@ -705,9 +969,18 @@ def cmd_respond(argv):
             return
 
     boundary_ts = boundary_entry["ts"] if boundary_entry else None
-    tool_count = count_hook_entries_since(history, boundary_ts)
     level = level_for(ledger["total_xp"])
-    event = new_response_event(_machine_name(), tool_count, level=level)
+
+    features = extract_turn_features(hook.get("transcript_path"))
+    if features:
+        cr = score_turn(features)
+        event = new_response_event(
+            _machine_name(), features["total_tools"], level=level, cr=cr
+        )
+    else:
+        tool_count = count_hook_entries_since(history, boundary_ts)
+        event = new_response_event(_machine_name(), tool_count, level=level)
+
     apply_event(ledger, event)
     save_ledger(_ledger_path(), ledger)
     _publish_or_outbox(event)
@@ -741,10 +1014,70 @@ def cmd_apply_remote(argv):
     stdin if argv is empty / '-'. Used by the listener daemon."""
     raw = argv[0] if argv and argv[0] != "-" else sys.stdin.read()
     event = json.loads(raw)
+    # The broker echoes our own publishes straight back to our subscriber.
+    # We already applied them locally before publishing, so re-applying is
+    # pure risk: if the event_id has aged out of the dedup ring (e.g. a
+    # reconnecting daemon re-flushing a long outbox), it double-counts.
+    # Our own events are never anything we need to learn from a remote.
+    if event.get("machine") == _machine_name():
+        return
     ledger = load_ledger(_ledger_path())
     apply_event(ledger, event)
     save_ledger(_ledger_path(), ledger)
     _publish_state_best_effort(ledger)
+
+
+def cmd_reconcile(argv):
+    """Merge the retained shared-state snapshot into this ledger even
+    after it has earned locally (catch up a total that drifted while
+    offline; honour an operator `reset-ledger` epoch bump). Reads state
+    JSON from argv[0] or stdin. Called by the daemon on every connect."""
+    raw = argv[0] if argv and argv[0] != "-" else sys.stdin.read()
+    raw = raw.strip()
+    if not raw:
+        return
+    state = json.loads(raw)
+    ledger = load_ledger(_ledger_path())
+    if reconcile_with_state(ledger, state, _machine_name()):
+        save_ledger(_ledger_path(), ledger)
+        _publish_state_best_effort(ledger)
+
+
+def cmd_reset_ledger(argv):
+    """Operator override: force this machine's total to <n>, bump the
+    shared epoch, and publish it retained. Every other machine adopts it
+    (up OR down) on its next reconcile. Use to undo an inflation bug.
+
+    usage: xp.sh reset-ledger <total_xp>"""
+    if not argv:
+        print("usage: xp.sh reset-ledger <total_xp>", file=sys.stderr)
+        sys.exit(2)
+    total = int(argv[0])
+    ledger = load_ledger(_ledger_path())
+    ledger["epoch"] = ledger.get("epoch", 0) + 1
+    ledger["total_xp"] = total
+    ledger["level"] = level_for(total)
+    ledger["next_level_at"] = next_level_at(total)
+    ledger.setdefault("history", []).append(
+        {
+            "event_id": str(uuid.uuid4()),
+            "machine": _machine_name(),
+            "ts": _now_iso(),
+            "kind": "reconcile",
+            "xp": 0,
+            "source": "reconcile",
+            "flavor": f"operator reset to {total:,} XP (epoch {ledger['epoch']})",
+            "leveled_up": False,
+            "new_level": ledger["level"],
+        }
+    )
+    save_ledger(_ledger_path(), ledger)
+    _publish_state_best_effort(ledger)
+    print(
+        json.dumps(
+            {"total_xp": total, "level": ledger["level"], "epoch": ledger["epoch"]}
+        )
+    )
 
 
 def cmd_bootstrap(argv):
@@ -808,6 +1141,8 @@ COMMANDS = {
     "statusline": cmd_statusline,
     "apply-remote": cmd_apply_remote,
     "bootstrap": cmd_bootstrap,
+    "reconcile": cmd_reconcile,
+    "reset-ledger": cmd_reset_ledger,
     "flush-outbox": cmd_flush_outbox,
     "flush-ticks": cmd_flush_ticks,
 }

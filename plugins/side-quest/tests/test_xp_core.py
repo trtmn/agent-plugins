@@ -1,4 +1,7 @@
+import json
+
 from xp_core import (
+    LEVEL_AWARD_CAP,
     LEVEL_AWARD_GROWTH,
     TICK_FLAVOR_TEMPLATES,
     ZERO_TOOL_FLAVOR_TEMPLATES,
@@ -7,7 +10,9 @@ from xp_core import (
     apply_event,
     coalesce_ticks,
     count_hook_entries_since,
+    extract_turn_features,
     is_applied,
+    level_award_multiplier,
     level_for,
     load_ledger,
     new_award_event,
@@ -19,9 +24,11 @@ from xp_core import (
     random_flavor,
     random_zero_tool_flavor,
     read_outbox,
+    reconcile_with_state,
     record_applied,
     remove_from_outbox,
     save_ledger,
+    score_turn,
     should_bootstrap_from_state,
     should_flush_ticks,
     xp_for_tool_count,
@@ -33,6 +40,7 @@ def _empty_ledger():
         "total_xp": 0,
         "level": 1,
         "quests_completed": 0,
+        "epoch": 0,
         "history": [],
         "applied_event_ids": [],
     }
@@ -593,3 +601,190 @@ def test_publish_event_does_not_pass_flags_mosquitto_pub_rejects(tmp_path):
     spy.chmod(0o755)
     event = new_tick_event(machine="machine-a")
     assert publish_event(event, host="test-broker", mosquitto_pub_cmd=str(spy)) is True
+
+
+# --- level-award cap -------------------------------------------------------
+
+
+def test_level_award_multiplier_grows_then_caps():
+    assert level_award_multiplier(1) == 1.0
+    assert level_award_multiplier(10) == LEVEL_AWARD_GROWTH**9
+    # well past the cap knee
+    assert level_award_multiplier(98) == LEVEL_AWARD_CAP
+    assert level_award_multiplier(500) == LEVEL_AWARD_CAP
+
+
+def test_response_event_reward_is_bounded_at_absurd_levels():
+    # the runaway bug: an uncapped multiplier turned every per-turn respond
+    # into six figures. Capped, a top-tier turn maxes at base * cap.
+    ev = new_response_event("m", tool_count=50, level=9999, cr=5)
+    assert ev["xp"] == round(18000 * LEVEL_AWARD_CAP)
+
+
+# --- self-echo guard is exercised in test_cli.py --------------------------
+# --- transcript heuristic ------------------------------------------------
+
+
+def _write_transcript(path, rows):
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+
+
+def _user(text):
+    return {"type": "user", "message": {"role": "user", "content": text}}
+
+
+def _assistant_tools(*tools):
+    content = [{"type": "tool_use", "name": name, "input": inp} for name, inp in tools]
+    return {"type": "assistant", "message": {"role": "assistant", "content": content}}
+
+
+def _tool_result():
+    return {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": "x", "content": "ok"}],
+        },
+    }
+
+
+def test_extract_turn_features_none_when_no_transcript():
+    assert extract_turn_features(None) is None
+    assert extract_turn_features("/nonexistent/path.jsonl") is None
+
+
+def test_extract_turn_features_counts_only_the_last_turn(tmp_path):
+    t = tmp_path / "t.jsonl"
+    _write_transcript(
+        t,
+        [
+            _user("old task"),
+            _assistant_tools(
+                ("Edit", {"file_path": "/old.py", "old_string": "a", "new_string": "b"})
+            ),
+            _tool_result(),
+            _user("new task"),
+            _assistant_tools(
+                ("Read", {"file_path": "/a.py"}),
+                ("Edit", {"file_path": "/a.py", "old_string": "x", "new_string": "y"}),
+            ),
+            _tool_result(),
+        ],
+    )
+    f = extract_turn_features(str(t))
+    assert f["files_touched"] == 1  # only /a.py, not /old.py
+    assert f["edit_tools"] == 1
+    assert f["investigation_tools"] == 1
+    assert f["total_tools"] == 2
+
+
+def test_extract_turn_features_investigation_only_counts_before_first_edit(tmp_path):
+    t = tmp_path / "t.jsonl"
+    _write_transcript(
+        t,
+        [
+            _user("task"),
+            _assistant_tools(
+                ("Grep", {"pattern": "foo"}),
+                ("Read", {"file_path": "/a"}),
+                ("Edit", {"file_path": "/a", "old_string": "x", "new_string": "y"}),
+                ("Read", {"file_path": "/b"}),  # after edit — not investigation
+            ),
+        ],
+    )
+    f = extract_turn_features(str(t))
+    assert f["investigation_tools"] == 2
+
+
+def test_extract_turn_features_detects_test_runs(tmp_path):
+    t = tmp_path / "t.jsonl"
+    _write_transcript(
+        t,
+        [
+            _user("task"),
+            _assistant_tools(("Bash", {"command": "uv run pytest -q"})),
+        ],
+    )
+    assert extract_turn_features(str(t))["tests_run"] is True
+
+
+def _features(**over):
+    base = {
+        "total_tools": 0,
+        "edit_tools": 0,
+        "files_touched": 0,
+        "files_created": 0,
+        "approx_lines": 0,
+        "investigation_tools": 0,
+        "tests_run": False,
+        "assistant_turns": 0,
+    }
+    base.update(over)
+    return base
+
+
+def test_score_turn_pure_conversation_is_cr1():
+    assert score_turn(_features()) == 1
+
+
+def test_score_turn_single_small_edit_is_cr2():
+    assert score_turn(_features(edit_tools=1, files_touched=1, approx_lines=5)) == 2
+
+
+def test_score_turn_multi_file_is_cr3():
+    assert score_turn(_features(edit_tools=3, files_touched=3, approx_lines=50)) == 3
+
+
+def test_score_turn_wide_change_is_cr4():
+    assert score_turn(_features(edit_tools=5, files_touched=5, approx_lines=120)) == 4
+
+
+def test_score_turn_sprawling_change_is_cr5():
+    f = _features(edit_tools=12, files_touched=10, approx_lines=400, files_created=4)
+    assert score_turn(f) == 5
+
+
+def test_score_turn_heavy_investigation_no_edit_is_cr2():
+    assert score_turn(_features(total_tools=15, investigation_tools=12)) == 2
+
+
+# --- reconcile_with_state ----------------------------------------------
+
+
+def test_reconcile_catches_up_to_higher_shared_total():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 500
+    changed = reconcile_with_state(ledger, {"total_xp": 9000, "epoch": 0}, "m")
+    assert changed is True
+    assert ledger["total_xp"] == 9000
+    assert ledger["history"][-1]["kind"] == "reconcile"
+
+
+def test_reconcile_noop_when_local_is_ahead_same_epoch():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 9000
+    assert reconcile_with_state(ledger, {"total_xp": 500, "epoch": 0}, "m") is False
+    assert ledger["total_xp"] == 9000
+
+
+def test_reconcile_epoch_bump_forces_total_down():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 5_000_000
+    ledger["epoch"] = 0
+    changed = reconcile_with_state(ledger, {"total_xp": 100_000, "epoch": 1}, "m")
+    assert changed is True
+    assert ledger["total_xp"] == 100_000
+    assert ledger["epoch"] == 1
+
+
+def test_reconcile_ignores_stale_epoch():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 100_000
+    ledger["epoch"] = 2
+    assert reconcile_with_state(ledger, {"total_xp": 999, "epoch": 1}, "m") is False
+
+
+def test_reconcile_noop_on_empty_state():
+    ledger = _empty_ledger()
+    ledger["total_xp"] = 5
+    assert reconcile_with_state(ledger, None, "m") is False
