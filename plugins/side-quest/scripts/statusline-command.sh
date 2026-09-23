@@ -103,54 +103,6 @@ vscode_file=""
 #   )
 # fi
 
-# Side-quest XP ledger (written by the side-quest plugin's xp.sh)
-xp_level=""
-xp_total=""
-xp_to_next=""
-xp_award=""     # transient: non-empty for 8s after an award
-xp_flavor=""    # humorous "why" text, e.g. "wielded Grep like a jedi lightsaber"
-xp_levelup=false
-xp_file="$HOME/.claude/side-quest/xp.json"
-if [ -f "$xp_file" ]; then
-  xp_data=$(jq -r 'select(.total_xp != null) | "\(.level)\t\(.total_xp)\t\(.next_level_at // "null")"' "$xp_file" 2>/dev/null)
-  if [ -n "$xp_data" ]; then
-    xp_level=$(echo "$xp_data" | cut -f1)
-    xp_total=$(echo "$xp_data" | cut -f2)
-    nla=$(echo "$xp_data" | cut -f3)
-    if [ "$nla" = "null" ]; then
-      xp_to_next="MAX"
-    else
-      xp_to_next="$(( nla - xp_total )) to Lv$(( xp_level + 1 ))"
-    fi
-  fi
-
-  # Transient award: show for 8 seconds after last award, long enough to read
-  last_entry=$(jq -c '.history[-1] // empty' "$xp_file" 2>/dev/null)
-  if [ -n "$last_entry" ]; then
-    last_ts=$(echo "$last_entry" | jq -r '.ts // empty')
-    last_xp=$(echo "$last_entry" | jq -r '.xp // 0')
-    last_flavor=$(echo "$last_entry" | jq -r '.flavor // empty')
-    leveled_up=$(echo "$last_entry" | jq -r '.leveled_up // false')
-    new_level=$(echo "$last_entry" | jq -r '.new_level // empty')
-    if [ -n "$last_ts" ] && [ "$last_xp" -gt 0 ] 2>/dev/null; then
-      age=$(python3 - "$last_ts" <<'PY' 2>/dev/null
-import sys
-from datetime import datetime, timezone
-dt = datetime.fromisoformat(sys.argv[1])
-print(int((datetime.now(timezone.utc) - dt).total_seconds()))
-PY
-)
-      if [ -n "$age" ] && [ "$age" -lt 8 ] 2>/dev/null; then
-        xp_award="+${last_xp} XP"
-        xp_flavor="$last_flavor"
-        if [ "$leveled_up" = "true" ] && [ -n "$new_level" ]; then
-          xp_levelup=true
-        fi
-      fi
-    fi
-  fi
-fi
-
 # Build statusline with ANSI colors matching the zsh prompt palette
 # blue for user@host, green for directory, dim for metadata
 
@@ -175,33 +127,7 @@ fi
 
 printf "\n"
 
-# Line 2: side-quest XP
-if [ -n "$xp_level" ]; then
-  if [ "$xp_levelup" = "true" ]; then
-    # Level-up: alternate between two styles every second for a flash effect
-    tick=$(( $(date +%s) % 2 ))
-    if [ "$tick" -eq 0 ]; then
-      printf "\033[1;35m⚔️ 🎉 LEVEL UP! Lv%s 🆙 %s\033[0m\n" "$xp_level" "$xp_award"
-    else
-      printf "\033[1;33m⚔️ ✨ LEVEL UP! Lv%s ✨ %s\033[0m\n" "$xp_level" "$xp_award"
-    fi
-  else
-    # sword + level in bold cyan, XP total in yellow, to-next dim white
-    xp_total_fmt=$(awk -v n="$xp_total" 'BEGIN{printf "%'"'"'d\n", n}' 2>/dev/null || echo "$xp_total")
-    printf "⚔️ \033[1;36mLv%s\033[0m \033[33m%s XP\033[0m \033[2;37m(%s)\033[0m" \
-      "$xp_level" "$xp_total_fmt" "$xp_to_next"
-    # transient award in bright green, with the humorous "why" alongside it
-    if [ -n "$xp_award" ]; then
-      printf "  \033[1;32m%s ✨\033[0m" "$xp_award"
-      if [ -n "$xp_flavor" ]; then
-        printf " \033[2;3m(%s)\033[0m" "$xp_flavor"
-      fi
-    fi
-    printf "\n"
-  fi
-fi
-
-# Line 3: context usage + cache info
+# Line 2: context usage + cache info
 ctx_cache_line=""
 if [ -n "$ctx_str" ]; then
   ctx_cache_line="$ctx_str"
@@ -217,7 +143,7 @@ if [ -n "$ctx_cache_line" ]; then
   printf "\033[2m%s\033[0m\n" "$ctx_cache_line"
 fi
 
-# Line 4: rate limit info (only printed when data is present)
+# Line 3: rate limit info (only printed when data is present)
 rate_line=""
 if [ -n "$five_str" ]; then
   rate_line="$five_str"

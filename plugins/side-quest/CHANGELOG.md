@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.7.0] — 2026-09-23
+Drop the XP readout from the status line.
+
+- **Removed the XP line from `scripts/statusline-command.sh`** — the `⚔️ Lv… XP` readout,
+  its transient `+N XP` toast, and the level-up flash are gone. The statusline renders three
+  lines again: `user@host:dir` plus git branch/session/model, context + cache usage, and
+  rate limits.
+- **The refresh gets cheaper too** — the removed block read `xp.json` with three `jq` calls
+  and forked a `python3` process on every render (the statusline re-renders once a second).
+  Those per-refresh reads are gone with it.
+- **XP itself is untouched** — crediting, the ledger at `~/.claude/side-quest/xp.json`,
+  per-tool ticks, and MQTT cross-machine sync all behave exactly as before. Only the
+  statusline rendering was removed; `xp.sh statusline` still prints the ledger summary
+  on demand.
+
 ## [2.6.0] — 2026-08-27
 `/side-quest:reset` command, and make `reset-ledger` propagate immediately
 and require confirmation.
