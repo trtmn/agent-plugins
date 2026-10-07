@@ -6,7 +6,9 @@ const last = atom({ plugin: 'last-message', key: 'text' } as const, null)
 export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     const text = e.text.trim()
-    if (text && !text.startsWith('/')) {
+    // Only the person's own prompts: not task notifications, peers or schedules.
+    const isPerson = e.origin?.kind === 'composer' || e.origin?.kind === 'bridge'
+    if (isPerson && text && !text.startsWith('/')) {
       await update($, last, () => text)
     }
     return next(e)
