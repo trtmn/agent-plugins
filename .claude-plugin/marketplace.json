@@ -14,6 +14,11 @@
       "description": "Generates an ASCII cow saying custom text. Use when the user wants \"cowsay\", \"cow say\", or a cow to say something."
     },
     {
+      "name": "current-goal",
+      "source": "./plugins/current-goal",
+      "description": "Mod that shows the session's current goal, in light blue, above the prompt input (under the last-message line when that mod is installed). Tracks /goal <condition>, /goal clear, and goals the model proposes. Hooks-only: no skills, agents, or setup step."
+    },
+    {
       "name": "font-extractor",
       "source": "./plugins/font-extractor",
       "description": "Extract and download all fonts from a website, organized into ./fonts/<font-family>/ subdirectories. Use this skill whenever the user wants to grab, rip, download, or extract fonts from a website or URL — even if they just say \"get the fonts from this site\", \"download the fonts used on this page\", or \"what fonts does this website use?\". Works with both static and JavaScript-rendered pages."

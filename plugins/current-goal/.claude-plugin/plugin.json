@@ -1,0 +1,1 @@
+{ "name": "current-goal", "version": "0.1.0", "description": "Shows the session's current goal in light blue just above the prompt input", "types": "./types/index.d.ts" }
