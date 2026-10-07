@@ -1,0 +1,1 @@
+{ "name": "last-message", "version": "0.1.0", "description": "Shows your last message highlighted just above the prompt input", "types": "./types/index.d.ts" }
