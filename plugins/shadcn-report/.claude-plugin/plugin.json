@@ -1,0 +1,5 @@
+{
+  "name": "shadcn-report",
+  "version": "1.0.0",
+  "description": "Build polished, self-contained HTML reports with shadcn/ui and Magic UI (magicui.design) components, scaffolded and extended with the shadcn CLI via npx, then bundled into ONE portable .html file (optionally exported to PDF). Use this skill whenever the user wants an HTML report, status report, analytics/metrics report, KPI summary, audit or findings write-up, project/quarterly/weekly report, data summary page, or \"make this into a nice report\" — and whenever they mention shadcn, shadcn/ui, Magic UI, magicui, or `npx shadcn` in the context of a page or report, even if they don't say \"skill\". Also use it to edit or rebuild a report made earlier with this skill."
+}

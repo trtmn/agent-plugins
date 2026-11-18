@@ -1,0 +1,50 @@
+
+/* ---- shadcn-report: categorical chart palette ------------------------------
+   Neutral-based presets (nova etc.) ship gray --chart-* values, which makes
+   multi-series charts unreadable. These are shadcn's own colorful defaults.
+   Delete this block if the chosen preset already has a colored chart palette. */
+:root {
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+}
+.dark {
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+}
+
+/* ---- shadcn-report: print + static-mode safety ---------------------------- */
+@media print {
+  /* Recharts measures its width on screen and does not re-measure for paper,
+     so a narrow paper column clips charts. A wide CSS page (A-series aspect
+     ratio) keeps the print layout close to the desktop layout; the PDF viewer /
+     printer scales the page down to physical paper. */
+  @page {
+    size: 1200px 1697px;
+    margin: 48px;
+  }
+  html,
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Motion sets inline opacity/filter/transform; !important wins over inline. */
+  [style*="opacity"],
+  [style*="filter"],
+  [style*="transform"] {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  .print-hidden {
+    display: none !important;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+}

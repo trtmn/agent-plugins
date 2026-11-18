@@ -84,6 +84,11 @@
       "description": "The full self-improvement learning loop: autonomous background capture of corrections, errors, and gaps to ~/.learnings/ (the `learnings` skill), plus autonomous review that investigates each pending entry and auto-promotes the qualifiers into CLAUDE.md with a conservative bar and a revertible CHANGELOG trail. Review fires on a gated SessionEnd hook (detached headless run) and on demand via /self-improvement. Undo with /self-improvement:revert. Run /self-improvement:setup after install."
     },
     {
+      "name": "shadcn-report",
+      "source": "./plugins/shadcn-report",
+      "description": "Build polished, self-contained HTML reports with shadcn/ui and Magic UI (magicui.design) components, scaffolded and extended with the shadcn CLI via npx, then bundled into ONE portable .html file (optionally exported to PDF). Use this skill whenever the user wants an HTML report, status report, analytics/metrics report, KPI summary, audit or findings write-up, project/quarterly/weekly report, data summary page, or \"make this into a nice report\" — and whenever they mention shadcn, shadcn/ui, Magic UI, magicui, or `npx shadcn` in the context of a page or report, even if they don't say \"skill\". Also use it to edit or rebuild a report made earlier with this skill."
+    },
+    {
       "name": "side-quest",
       "source": "./plugins/side-quest",
       "description": "Launch background subagent(s) to handle a task as a side quest while the main conversation stays free. Use when the user types /side-quest or asks to run a task as a side quest. Rates the task's difficulty (Challenge Rating) to pick the model — haiku for trivial quests, sonnet for standard quests, opus for boss fights — honors a user-named model override, splits decomposable tasks across a party of parallel agents, and reports launch and completion in Dungeons & Dragons style emoji and flavor, always paired with a plain-English summary. Awards D&D 5e XP by Challenge Rating on completion and keeps a persistent XP/level ledger at ~/.claude/side-quest/xp.json, shared across all sessions and ready for status-bar integration."
